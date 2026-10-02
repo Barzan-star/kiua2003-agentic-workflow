@@ -1,0 +1,7 @@
+default_permissions = "course_project"
+
+[permissions.course_project]
+extends = ":workspace"
+
+[permissions.course_project.filesystem.":workspace_roots"]
+"**/.env" = "deny"

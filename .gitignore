@@ -1,0 +1,4 @@
+.env
+out/
+.codex/config.local.toml
+.agents/*.local.*
