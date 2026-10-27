@@ -8,3 +8,19 @@ glob_scan_max_depth = 6
 
 [permissions.course_project.filesystem.":workspace_roots"]
 "**/.env" = "deny"
+
+[permissions.course_summary]
+extends = ":read-only"
+
+[permissions.course_summary.filesystem]
+"~/.nvm/versions/node/v24.21.0" = "read"
+glob_scan_max_depth = 6
+":root" = "deny"
+":minimal" = "read"
+
+[permissions.course_summary.filesystem.":workspace_roots"]
+"." = "read"
+"**/.env" = "deny"
+
+[permissions.course_summary.network]
+enabled = false

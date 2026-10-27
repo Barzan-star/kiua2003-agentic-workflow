@@ -17,3 +17,17 @@ The exercises confirmed the listed check commands, editing and personal-data rul
 Prompt summary: implement MET HTTP caching while preserving fixture-only offline runs, test cache refresh and failure behavior deterministically, and document the agreed cache policies and verification results.
 
 The implementation stores the forecast with `Expires` and `Last-Modified` metadata in `out/met_hamar_cache.json`, reuses valid unexpired entries, refreshes expired entries conditionally, and reuses the saved forecast after `304`. Review found that empty or malformed forecast data could be reused or saved; the initial regression run had two failures and one error, followed by nine passing tests after validation was strengthened. Verification used offline fixture input and mocked HTTP responses; no live API request was tested.
+
+## 2026-10-27 — W43 simulation, Tasks 003 and 004
+Prompt summary: document reproducible offline workflow-preview and headless
+summary commands, record simulation results, and verify the saved summaries.
+
+The first headless attempt could not execute read commands because its
+sandbox could not access the Codex runtime, and the final paragraph failed
+the summary checker. A narrow read permission for the versioned NVM runtime
+fixed access, verified with `codex sandbox`. The following two headless
+attempts passed with different wording. The saved input contains 83 entries
+from 3–13 October 2026, with minimum -0.3 °C and maximum 16.6 °C. The
+checker enforces 20–80 words, Hamar, both extremes with Celsius units, and
+no Celsius temperature absent from the input; it does not validate framing
+or other factual claims. No live MET request was tested.

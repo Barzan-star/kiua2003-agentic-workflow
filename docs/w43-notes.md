@@ -1,5 +1,25 @@
 # W43 context notes
 
+## Task 003 and Task 004 — offline summary simulation
+
+- `./harness/run.sh --offline --dry-run` previews the workflow; the runner
+  does not execute its probe or summary stages yet.
+- The saved probe input contains 83 entries spanning 3–13 October 2026. Its
+  minimum is -0.3 °C and its maximum is 16.6 °C.
+- The first headless summary attempt could not execute read commands because
+  the sandbox could not access the Codex runtime. Its final paragraph failed
+  `eval/check_summary.py`. Adding a narrow read permission for the runtime
+  fixed the problem; `codex sandbox` verified access. The next two headless
+  attempts both passed the checker and used different wording.
+- Both saved successful summaries, `out/summary-run2.md` and
+  `out/summary.md`, pass `eval/check_summary.py`.
+- The checker tests word count (20–80), a case-insensitive Hamar mention,
+  presence of the probe minimum and maximum with °C, and rejects any °C
+  temperature absent from the probe. It does not check historical/current
+  framing or other factual claims.
+- Offline refers to the saved weather input. The headless summary still uses
+  the configured model service. No live MET request was tested.
+
 ## Context — 2026-10-27
 
 Context belongs in the file that matches its scope and when it is needed:
