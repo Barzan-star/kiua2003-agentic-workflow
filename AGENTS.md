@@ -6,6 +6,7 @@ Run these check commands from the repository root:
 
 ```sh
 python3 harness/probe.py --offline && python3 eval/check_probe.py
+python3 -m unittest discover -s tests
 git diff --check
 ```
 

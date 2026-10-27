@@ -1,4 +1,5 @@
 .env
 out/
+__pycache__/
 .codex/config.local.toml
 .agents/*.local.*
