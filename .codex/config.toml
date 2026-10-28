@@ -3,5 +3,40 @@ default_permissions = "course_project"
 [permissions.course_project]
 extends = ":workspace"
 
+[permissions.course_project.filesystem]
+glob_scan_max_depth = 6
+
 [permissions.course_project.filesystem.":workspace_roots"]
 "**/.env" = "deny"
+
+[permissions.course_summary]
+extends = ":read-only"
+
+[permissions.course_summary.filesystem]
+"~/.nvm/versions/node/v24.21.0" = "read"
+glob_scan_max_depth = 6
+":root" = "deny"
+":minimal" = "read"
+
+[permissions.course_summary.filesystem.":workspace_roots"]
+"." = "read"
+"**/.env" = "deny"
+
+[permissions.course_summary.network]
+enabled = false
+
+[mcp_servers.fixtures]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem@2.0.1", "./fixtures"]
+enabled = false
+enabled_tools = ["list_allowed_directories", "list_directory", "read_text_file"]
+startup_timeout_sec = 60
+tool_timeout_sec = 30
+
+[mcp_servers.met]
+command = ".venv/bin/python"
+args = ["-m", "harness.mcp_met", "--offline"]
+enabled = false
+enabled_tools = ["forecast"]
+startup_timeout_sec = 30
+tool_timeout_sec = 30
