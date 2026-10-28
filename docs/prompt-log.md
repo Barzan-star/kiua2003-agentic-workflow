@@ -24,6 +24,29 @@ MET requests and schedules remain untested. PR #2's initial GitHub Actions
 run (40663441912) passed all 35 tests before Task 009; GitHub Actions has not
 tested Task 009.
 
+## 2026-10-28 — Final W43 debrief
+Prompt summary: record merged Task 008/009 results, the disposable breaking
+CI demonstration and its restoration, and backup references for verified
+workflow controls and limits.
+
+PR #2 merged as `932aec3`; Task 009 commit `906f973` passed CI run
+`40666992808`, and the latest local full suite passed all 37 tests. Demo PR #3
+commit `900539c` failed with `AssertionError: empty title` in CI run
+`40668294754`; revert `f6e54f1` restored local PASS and CI run
+`40668817917`. PR #3 closed without merging, both demo branches were deleted,
+and the restored demo tree matched `main`.
+
+The final notes retain the documented repairs and limits: the fixture is
+historical; fixture input does not prevent model-service network access; the
+summary checker has limited factual and freshness coverage; attempt logs
+separate candidate, prompt, checker, event, stdout, and stderr data; Codex's
+ephemeral mode does not remove instructions or configured permissions; and
+attempt/time limits do not cap dollar spend. MCP module launch fixed imports,
+with stdio kept separate from stderr; workflow-scope recovery is specific to
+the matching OAuth push error. Reviewer agents, agent SDKs, hooks, and
+scheduling remained concepts only. Live MET requests remain untested, and
+repository-specific tag publication is pending.
+
 ## 2026-10-28 — Task 006 W43 MCP checkpoint
 Prompt summary: document the completed offline MCP demonstration, observed
 filesystem and forecast tool behavior, implementation fixes, regression

@@ -18,8 +18,40 @@
   full-suite tests passed.
 - The offline probe and checker, whitespace check, and protected-path diff
   check passed.
-- HTTP responses were mocked. Live MET requests and schedules remain
-  untested. GitHub Actions has not tested Task 009.
+- Task 009 commit `906f973` passed GitHub CI run `40666992808`. HTTP responses
+  were mocked. Live MET requests and schedules remain untested.
+
+## Final W43 debrief and backup reference (2026-10-28)
+
+- PR #2 merged as `932aec3`. The latest full local suite passed all 37 tests.
+- Demo PR #3's breaking commit `900539c` produced `AssertionError: empty
+  title` in CI run `40668294754`. Revert `f6e54f1` restored local PASS and
+  successful CI run `40668817917`. PR #3 was closed without merging; its
+  local and remote demo branches were deleted. The restored demo tree matched
+  `main`.
+- Existing faults and repairs: Task 009 corrected longitude precision and
+  compression handling; Task 006 fixed module-mode MCP launching and filtered
+  usable forecast entries before limiting; Tasks 003–005 resolved restricted
+  Codex runtime reads and completed the checked workflow. Earlier cache
+  validation and summary-attempt evidence remains in the task records above.
+- Offline fixture input does not make summary generation offline: the model
+  service is still contacted. Fixture timestamps are historical. The summary
+  checker validates length, Hamar, supplied extremes, and unsupported Celsius
+  values, but does not establish freshness or verify other factual claims.
+  Workflow attempts retain separate candidates, prompts, checker feedback,
+  event output, stdout/stderr logs, and probe logs.
+- Codex output, ephemeral execution, and the `course_summary` permission
+  profile were verified. Ephemeral runs still follow the supplied
+  instructions and configured permissions. Attempt and time limits are not a
+  dollar cap.
+- MCP troubleshooting established module-mode launch as the package-import
+  fix and kept protocol stdout separate from stderr logs. The stdio test
+  timed out in Codex's command environment and passed directly in WSL; the
+  cause remains unconfirmed.
+- Workflow-scope recovery applies only to the matching OAuth push error.
+  Repository-specific tags were discussed; tag publication is still pending.
+- Reviewer agents, agent SDKs, hooks, and scheduling were discussed as
+  concepts, not implemented. Live MET requests remain untested.
 
 ## Task 006 — MCP checkpoint (2026-10-28)
 

@@ -43,5 +43,5 @@ git diff --exit-code HEAD -- eval/ fixtures/ harness/run.sh .codex/config.toml
   full-suite tests passed.
 - The offline probe and checker, whitespace check, and protected-path diff
   check passed.
-- HTTP responses were mocked. Live MET requests and schedules remain
-  untested; GitHub Actions has not tested Task 009.
+- Task 009 commit `906f973` passed GitHub CI run `40666992808`. HTTP responses
+  were mocked. Live MET requests and schedules remain untested.
