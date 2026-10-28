@@ -1,5 +1,18 @@
 # Prompt log
 
+## 2026-10-28 — Task 005 checked workflow checkpoint
+Prompt summary: document and commit the completed orchestration checkpoint,
+including the successful offline run, checker result, evidence location, and
+stub-based retry and failure coverage.
+
+The deterministic suite passed all 28 tests. The actual
+`./harness/run.sh --offline` execution exited 0 on summary attempt 1; the
+published summary independently passed its checker with exit code 0 and
+included -0.3 °C and 16.6 °C. Evidence is in
+`out/workflow-20261028T065410Z-mTeyor`. No live MET request was made. Retry
+and failure paths were tested with stubs and were not exercised in this
+successful model run.
+
 ## 2026-10-03 — Task 001 MET Norway probe
 Codex initially proposed adding contact details to the MET Norway User-Agent.
 I rejected that assumption because the project must avoid personal data.

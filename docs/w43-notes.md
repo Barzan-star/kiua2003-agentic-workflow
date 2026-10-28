@@ -1,5 +1,16 @@
 # W43 context notes
 
+## Task 005 — checked workflow checkpoint (2026-10-28)
+
+- The deterministic suite passed all 28 tests.
+- `./harness/run.sh --offline` ran successfully with workflow exit code 0 on
+  summary attempt 1.
+- The published `out/summary.md` independently passed its checker with exit
+  code 0 and included minimum -0.3 °C and maximum 16.6 °C.
+- Evidence directory: `out/workflow-20261028T065410Z-mTeyor`.
+- No live MET request was made. Stubs covered retry and failure behavior;
+  those paths were not exercised during this successful model run.
+
 ## Task 003 and Task 004 — offline summary simulation
 
 - `./harness/run.sh --offline --dry-run` previews the workflow; the runner

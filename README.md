@@ -21,24 +21,54 @@ Use the Bash runner to preview the workflow without executing any stages:
 
 The offline preview uses `fixtures/met_hamar.json` as the probe input. The
 normal preview shows the HTTP cache or MET API as the source. Both previews
-show the probe output and check, followed by a summary stage marked **PLANNED**
-and not implemented yet. Actual execution is not wired; invoking the runner
-without `--dry-run` exits with an error.
+show the probe and checker stages, plus summary generation and validation with
+up to three attempts. Preview mode does not execute commands or create files.
+The runner resolves the repository root from its own path, so these commands
+also work outside the repository directory.
 
 ## Offline run
 
-Prerequisites are Python 3, Bash, and the Codex CLI configured to use the
-`gpt-6-luna` model service. Run every command below from the repository root.
-The probe and its checker can be run without network access:
+Prerequisites are Python 3, Bash, GNU `timeout`, and the Codex CLI configured
+to use the `gpt-6-luna` model service. An offline run uses the saved fixture
+for the probe, but summary generation still calls the configured model
+service. To execute the checked workflow:
 
 ```sh
 python3 harness/probe.py --offline && python3 eval/check_probe.py
 ./harness/run.sh --offline --dry-run
+./harness/run.sh --offline
 ```
 
-`run.sh` currently previews the workflow only. It does not execute either
-stage. To generate a summary separately with the checked-in prompt and the
-`course_summary` permission profile, use:
+The runner executes the probe, then its checker, before making any model call.
+If either fails, it stops. Summary generation uses the checked-in prompt and
+the verified headless Codex settings below. A unique `out/workflow-*` folder
+keeps each run's candidates and logs; evidence from previous runs is retained.
+Each generated candidate is checked against `out/probe.json`. Only a passing
+candidate is copied to `out/summary.md`. A content rejection (checker exit
+code 1) is sent back as feedback for the next attempt, for up to three
+attempts. Model failures, timeouts, and checker file/input errors stop
+immediately. Offline mode applies to the probe input, not model generation.
+
+```mermaid
+flowchart TD
+    P[Run probe] --> J[out/probe.json]
+    J --> PC[Probe check]
+    PC -->|pass| G[Generate fresh summary candidate]
+    PC -->|process or input error| STOP[Stop immediately]
+    G --> SC[Summary check]
+    SC -->|pass| PUB[Publish out/summary.md]
+    SC -->|checker content rejection, up to 3 attempts| FB[Feed complete checker feedback]
+    FB --> G
+    SC -->|process or input error| STOP
+    PUB --> PASS[Passing output]
+```
+
+Probe or checker process/input errors stop the workflow immediately. Only a
+summary content rejection enters the bounded feedback loop; each retry uses a
+fresh candidate and the previous checker's complete feedback.
+
+The equivalent one-off generation command (the runner supplies a unique
+candidate path and attempt-specific logs) uses:
 
 ```sh
 timeout --kill-after=5s 90s codex exec \
@@ -56,9 +86,9 @@ timeout --kill-after=5s 90s codex exec \
 python3 eval/check_summary.py
 ```
 
-The CLI saves the generated paragraph to `out/summary.md` using `-o`, while
-`course_summary` restricts the commands executed by the agent. The `&&`
-connection ensures the checker runs only after successful generation.
+The CLI writes the generated paragraph using `-o`, while
+`course_summary` restricts the commands executed by the agent. The runner
+checks the attempt candidate and publishes it only after validation succeeds.
 
 Here, “offline” describes the saved weather input: `--offline` reads
 `fixtures/met_hamar.json` without a live MET request. Generating a summary
@@ -66,13 +96,17 @@ still calls the configured model service. The summary permission profile
 includes a read permission for the versioned NVM installation; that path
 must match the Codex runtime installation used by the reader.
 
-The first headless attempt could not execute read commands because the
-sandbox could not access the Codex runtime, and its final paragraph failed
-the checker. A narrow read permission for that runtime fixed the issue, as
-verified with `codex sandbox`. The next two headless attempts both passed the
-checker with different wording. The saved input has 83 entries from 3–13
-October 2026, with temperatures ranging from -0.3 °C to 16.6 °C. No live MET
-request was tested.
+Prior headless runs used the `course_summary` permission profile and passed
+the summary checker. The saved input has 83 entries from 3–13 October 2026,
+with temperatures ranging from -0.3 °C to 16.6 °C.
+
+On 2026-10-28, the deterministic suite passed all 28 tests. The actual
+`./harness/run.sh --offline` execution completed with workflow exit code 0
+and passed summary attempt 1. The published `out/summary.md` independently
+passed its checker with exit code 0 and included the correct minimum
+(-0.3 °C) and maximum (16.6 °C). Evidence is in
+`out/workflow-20261028T065410Z-mTeyor`. No live MET request was made. Retry
+and failure paths were exercised with stubs, not by this successful model run.
 
 The summary checker verifies a 20–80 word count, a case-insensitive Hamar
 mention, inclusion of the input minimum and maximum with °C, and that every
