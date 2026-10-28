@@ -1,0 +1,77 @@
+{
+  "title": "Validated automation course records",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "courses"],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "courses": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/course"}
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["section_index", "quote"],
+      "properties": {
+        "section_index": {"type": "integer"},
+        "quote": {"type": "string"}
+      }
+    },
+    "evidencedText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "evidence"],
+      "properties": {
+        "value": {"type": ["string", "null"]},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}
+      }
+    },
+    "evidencedDate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date", "evidence"],
+      "properties": {
+        "date": {"type": ["string", "null"]},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}
+      }
+    },
+    "course": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "title", "source_url", "retrieved_at", "application_deadline", "start_date", "planned_period", "prerequisites", "delivery_format", "study_fee_nok", "materials_qualification", "application_status", "missing_or_uncertain_fields"],
+      "properties": {
+        "course_id": {"type": "string"},
+        "title": {"type": "string"},
+        "source_url": {"type": "string"},
+        "retrieved_at": {"type": "string"},
+        "application_deadline": {"$ref": "#/$defs/evidencedDate"},
+        "start_date": {"$ref": "#/$defs/evidencedDate"},
+        "planned_period": {"$ref": "#/$defs/evidencedText"},
+        "prerequisites": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["text", "evidence"],
+            "properties": {"text": {"type": "string"}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}}
+          }
+        },
+        "delivery_format": {"$ref": "#/$defs/evidencedText"},
+        "study_fee_nok": {
+          "type": "object", "additionalProperties": false,
+          "required": ["amount", "evidence"],
+          "properties": {"amount": {"type": ["number", "null"]}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}}
+        },
+        "materials_qualification": {"$ref": "#/$defs/evidencedText"},
+        "application_status": {
+          "type": "object", "additionalProperties": false,
+          "required": ["value", "evidence"],
+          "properties": {"value": {"type": "string", "enum": ["not_stated", "no_current_openings", "open_for_application", "uncertain"]}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}}
+        },
+        "missing_or_uncertain_fields": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

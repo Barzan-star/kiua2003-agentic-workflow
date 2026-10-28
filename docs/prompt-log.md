@@ -1,5 +1,74 @@
 # Prompt log
 
+## 2026-10-28 -- Compulsory 2 successful walking-skeleton checkpoint
+
+The user applied the reviewed context-repair patch and ran the full suite in
+ordinary WSL: 65 tests passed in 3.773 seconds, exit code 0. The actual course
+workflow then passed on extraction attempt 1, exited 0, and published the JSON
+records and Norwegian comparison. Evidence directory:
+`out/training/run-20261028T165059Z-SOo49E`.
+
+The reported output preserves exact dates for the first two modules, zero
+study fees with additional-materials qualifications, source-linked admission
+conditions and module prerequisites, and unknown values/planned autumn 2027
+for the third module. Earlier rejected candidates were not published. The
+checker remained unchanged during the prompt/context repair. This is one
+successful model smoke test; wider evaluation, source-change monitoring, and
+an enforced token/cost budget remain planned work.
+
+## 2026-10-28 — Task 011 extraction and retry-context repair
+
+Prompt summary: inspect the actual source snapshot, three rejected candidates,
+extraction prompt, runner, and checker; repair context without relaxing
+source-grounding checks.
+
+The real WSL run `out/training/run-20261028T162922Z-UqNKq8` confirmed schema
+acceptance but rejected all three candidates. Observed failures included
+paraphrased text values, a wrong section index, and omitted missing/uncertain
+flags. The runner had supplied error feedback without the previous candidate.
+The revised harness supplies explicit source indices and the rejected JSON
+with feedback; the prompt requires extractive text, complete flags, and
+preserved admission alternatives. The test baseline now retains the full
+Introduction admissions block, including conditions and approved trades.
+
+Two new workflow tests reproduced missing context before the repair (one
+failure and one error). All 28 course tests then passed with mocked/stubbed
+processes in the review workspace. The checker was not changed. Adding only
+the four omitted flags to a copy of the archived last candidate passed an
+in-memory diagnostic check; that result was not a real model rerun and was
+not published. A new actual workflow run remains pending.
+
+## 2026-10-28 — Task 011 Structured Outputs schema compatibility
+
+Two real runs failed before extraction with HTTP 400 `invalid_json_schema`.
+`out/training/run-20261028T160124Z-FiDGd2` rejected the `uri` format on
+`properties/source_url`; `out/training/run-20261028T162223Z-i0aCZn` rejected
+`uniqueItems` on `properties/missing_or_uncertain_fields`. Both run directories
+and event logs remain preserved. The API-facing schema now contains only the
+allowed schema keywords and carries type/enum compatibility for
+`schema_version` and `application_status.value`. Removed format, size, minimum,
+uniqueness, and const constraints remain checked in Python where applicable.
+Record tests passed: `python3 -m unittest discover -s tests -p
+'test_course_records.py'` (10 tests), `python3 -m unittest discover -s tests -p
+'test_course_workflow.py'` (8 tests), and `git diff --check`. API acceptance
+still awaits a real rerun.
+
+## 2026-10-28 — Course source contact filtering repair
+
+Prompt summary: repair contact-section filtering in the course source
+collector, add synthetic regression coverage, reject contaminated offline
+bundles, and remove the two contaminated generated files.
+
+The original parser detected some contact headings but missed the
+application-administration heading variant; its broad section-label matching
+also admitted that block, and nested headings could reset contact exclusion.
+Synthetic-marker regressions reproduced the problem before repair: 3 failures
+in 8 focused tests. After normalized heading checks, nested-block exclusion,
+an explicit section allowlist, and pre-save bundle validation, all 8 focused
+tests passed. The tests also preserve prerequisite text, planned-start wording,
+and extra books/materials cost qualifications. No source regeneration was
+performed; it remains pending for ordinary WSL.
+
 ## 2026-10-28 — Task 008 offline CI checkpoint
 Prompt summary: prepare the offline GitHub Actions checks and record local
 verification plus the fresh-context task-planning check.
