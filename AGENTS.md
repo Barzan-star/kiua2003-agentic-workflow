@@ -1,6 +1,6 @@
 # Project instructions
 
-Two-person course project to build an agentic workflow.
+Group 2 individual course project
 
 Run these check commands from the repository root:
 

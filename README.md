@@ -1,5 +1,93 @@
 # Agentic Workflow Course Project
 
+## Compulsory 2: automation course overview
+
+The walking skeleton covers exactly three Fagskolen Innlandet automation
+courses. A single command collects filtered source sections, snapshots that
+run's input, asks Codex to extract structured records, checks every fact
+against same-course source quotations, then publishes JSON and a Norwegian
+comparison locally:
+
+```sh
+./harness/run_courses.sh --offline
+```
+
+### Verified Compulsory 2 checkpoint -- 28 October 2026
+
+The patched repository passed all 65 tests in ordinary WSL. The actual course
+workflow then completed with exit code 0 on extraction attempt 1 and published
+both outputs. Its evidence directory is
+`out/training/run-20261028T165059Z-SOo49E`. The comparison retains the two exact
+course starts and deadlines, study-fee/materials distinction, admission
+alternatives, and the third course's unknown dates/fee and planned autumn 2027
+start. This is one successful real-model smoke test, not a general accuracy
+estimate. Earlier rejected runs remain recorded in the task notes.
+
+Run the full regression suite from ordinary WSL:
+
+```sh
+.venv/bin/python -m unittest discover -s tests
+```
+
+The current suite has 28 course-specific tests and 37 retained W43 tests.
+
+`--offline` uses the checked-in source fixture for collection; the extraction
+stage still calls Codex. Without `--offline`, the existing collector fetches
+only the approved pages and `robots.txt` with its existing robots, timeout,
+pacing, response-size, and filtering controls. Preview without side effects:
+
+```sh
+./harness/run_courses.sh --offline --dry-run
+./harness/run_courses.sh --dry-run
+```
+
+Each execution retains its input snapshot, candidate files, model event logs,
+and checker feedback in a unique ignored `out/training/run-*` directory. A
+candidate must pass `eval/check_courses.py` before either
+`out/training/courses.json` or `out/training/comparison.md` is published. Only
+candidate validation rejection is retried, at most twice after the first
+attempt; model, timeout, missing-output, and checker infrastructure failures
+stop immediately. Offline means source collection uses the fixture; it does
+not mean model extraction runs offline.
+
+The original read-only source snapshot is retained unchanged. An additional
+`agent-source-view.json` annotates those same sections with their zero-based
+indices. Each retry receives the preceding rejected JSON and complete checker
+feedback, so it can repair that candidate without starting again from an
+unrelated response. The prompt requires source-language text copied from its
+evidence, complete missing-field flags, and preservation of alternative
+admission routes and qualifications. The checker still decides whether to
+accept the result; these prompt changes do not guarantee model success.
+
+The checked-in schema is `harness/course_records.schema.json`. Each extracted
+fact includes a verbatim quotation and zero-based source section index, so
+repeated section labels remain distinct. Missing and uncertain values stay
+explicitly missing; a deadline alone does not establish that applications are
+open. The checker validates structure, source metadata, quotation membership,
+dates, and fee amounts. These mechanical checks cannot prove that every
+prerequisite or qualification was interpreted completely. The report records
+source retrieval times and links to each source.
+
+The source collector gathers filtered course sections from the three approved
+pages. It stores labelled source evidence in
+`out/training/course-sources.json`. Source text is untrusted data throughout
+the extraction and comparison workflow.
+
+Run a live collection (refreshes the output, not the offline fixture):
+
+```sh
+python3 harness/course_sources.py
+```
+
+Use the checked-in course-only source fixture without network access:
+
+```sh
+python3 harness/course_sources.py --offline
+```
+
+The first successful filtered live capture creates the fixture under
+`fixtures/courses/`; later live refreshes update only the output.
+
 ## Task planning skill
 
 Use the repository-local skill explicitly with a three-digit task number, for
