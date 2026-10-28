@@ -1,0 +1,6 @@
+interface:
+  display_name: "Task Plan"
+  short_description: "Plan an identified repository task without making changes"
+  default_prompt: "Use $task-plan with a three-digit task number to prepare a read-only implementation plan."
+policy:
+  allow_implicit_invocation: false

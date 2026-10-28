@@ -1,5 +1,13 @@
 # Agentic Workflow Course Project
 
+## Task planning skill
+
+Use the repository-local skill explicitly with a three-digit task number, for
+example `$task-plan 005`, to get a read-only plan for the matching task file.
+The skill reports the goal, current implementation state, proposed steps,
+affected files, and exact acceptance commands marked `NOT RUN`. It does not
+make changes or run those commands.
+
 The MET Norway probe reads `fixtures/met_hamar.json` when run with `--offline`.
 This mode does not make a network request or change the fixture. Normal runs
 reuse the HTTP cache at `out/met_hamar_cache.json` until its `Expires` time,
