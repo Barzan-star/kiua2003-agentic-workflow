@@ -11,6 +11,19 @@ yet. The fresh-context `$task-plan 005` test recognised the completed
 implementation, marked acceptance commands **NOT RUN**, and left the worktree
 clean.
 
+## 2026-10-28 — Task 009 MET request protocol corrections
+Prompt summary: correct the request coordinates and compression handling,
+record regression and verification results, and preserve the limits of the
+mocked HTTP coverage.
+
+The Task 009 regression tests exposed the previous longitude precision and
+missing compression handling. After the fix, all 11 focused cache tests and
+all 37 full-suite tests passed. The offline probe and checker, whitespace
+check, and protected-path diff check passed. HTTP responses were mocked; live
+MET requests and schedules remain untested. PR #2's initial GitHub Actions
+run (40663441912) passed all 35 tests before Task 009; GitHub Actions has not
+tested Task 009.
+
 ## 2026-10-28 — Task 006 W43 MCP checkpoint
 Prompt summary: document the completed offline MCP demonstration, observed
 filesystem and forecast tool behavior, implementation fixes, regression

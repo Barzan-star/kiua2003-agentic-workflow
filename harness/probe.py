@@ -4,9 +4,11 @@
 import argparse
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+import gzip
 import json
 import math
 from pathlib import Path
+import zlib
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -17,7 +19,7 @@ OUTPUT = ROOT / "out" / "probe.json"
 CACHE = ROOT / "out" / "met_hamar_cache.json"
 SOURCE_URL = (
     "https://api.met.no/weatherapi/locationforecast/2.0/compact"
-    "?lat=60.7945&lon=11.06798"
+    "?lat=60.7945&lon=11.0679"
 )
 USER_AGENT = (
     "kiua2003-agentic-workflow/0.1 "
@@ -120,7 +122,10 @@ def _response_header(headers, name):
 
 
 def _request_forecast(cache_entry):
-    headers = {"User-Agent": USER_AGENT}
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept-Encoding": "gzip, deflate",
+    }
     if cache_entry and cache_entry["last_modified"] is not None:
         headers["If-Modified-Since"] = cache_entry["last_modified"]
     request = Request(SOURCE_URL, headers=headers)
@@ -144,6 +149,23 @@ def _request_forecast(cache_entry):
         if status != 200:
             raise RuntimeError(f"MET request failed: unexpected HTTP status {status}")
         raw = response.read()
+        content_encoding = response_headers.get("Content-Encoding", "identity")
+
+    encoding = str(content_encoding).strip().lower()
+    if encoding in ("", "identity"):
+        pass
+    elif encoding == "gzip":
+        try:
+            raw = gzip.decompress(raw)
+        except (OSError, EOFError, zlib.error) as error:
+            raise RuntimeError("MET response contained corrupt gzip data") from error
+    elif encoding == "deflate":
+        try:
+            raw = zlib.decompress(raw)
+        except zlib.error as error:
+            raise RuntimeError("MET response contained corrupt deflate data") from error
+    else:
+        raise RuntimeError(f"MET response used unsupported content encoding: {encoding}")
 
     try:
         forecast = json.loads(raw.decode("utf-8"))

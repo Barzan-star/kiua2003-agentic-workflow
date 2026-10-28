@@ -5,10 +5,21 @@
 - Local verification passed: SDK imports (`Client` and `MCPServer`), Bash
   syntax, both runner dry-runs, offline probe and checker, all 35 tests,
   whitespace check, and protected-path diff check.
-- GitHub Actions has not run yet.
+- PR #2's initial GitHub Actions run, 40663441912, passed all 35 tests before
+  the Task 009 changes. GitHub Actions has not tested Task 009.
 - The fresh-context `$task-plan 005` test passed: it recognised the completed
   implementation, marked acceptance commands **NOT RUN**, and left the
   worktree clean.
+
+## Task 009 — MET request protocol checkpoint (2026-10-28)
+
+- Regression tests exposed the previous longitude precision and missing
+  compression handling. After the fix, all 11 focused cache tests and all 37
+  full-suite tests passed.
+- The offline probe and checker, whitespace check, and protected-path diff
+  check passed.
+- HTTP responses were mocked. Live MET requests and schedules remain
+  untested. GitHub Actions has not tested Task 009.
 
 ## Task 006 — MCP checkpoint (2026-10-28)
 

@@ -14,6 +14,9 @@ reuse the HTTP cache at `out/met_hamar_cache.json` until its `Expires` time,
 then refresh it from the MET Norway Locationforecast API. The generated probe
 output remains at `out/probe.json`.
 
+Live requests use Hamar coordinates (`60.7945`, `11.0679`) and advertise gzip
+and HTTP deflate compression; uncompressed responses are also accepted.
+
 MET Norway forecast data is provided under the [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 license. The live API terms are documented at
 https://api.met.no/doc/TermsOfService.

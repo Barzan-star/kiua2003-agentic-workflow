@@ -1,4 +1,7 @@
 import json
+import gzip
+from urllib.parse import parse_qs, urlparse
+import zlib
 from datetime import datetime, timedelta, timezone
 from email.message import Message
 from email.utils import format_datetime
@@ -110,12 +113,59 @@ class ProbeCacheTests(unittest.TestCase):
         with patch.object(probe, "urlopen", return_value=response) as call:
             self.assertEqual(probe.read_forecast(offline=False), refreshed)
         request = call.call_args.args[0]
+        self.assertEqual(parse_qs(urlparse(request.full_url).query), {"lat": ["60.7945"], "lon": ["11.0679"]})
+        self.assertEqual(request.get_header("Accept-encoding"), "gzip, deflate")
         self.assertEqual(request.get_header("If-modified-since"), last_modified)
         self.assertEqual(request.get_header("User-agent"), probe.USER_AGENT)
         saved = json.loads(self.cache.read_text(encoding="utf-8"))
         self.assertEqual(saved["forecast"], refreshed)
         self.assertEqual(saved["expires"], expires)
         self.assertEqual(saved["last_modified"], last_modified)
+
+    def test_compressed_and_uncompressed_200_responses_are_accepted(self):
+        forecast = forecast_at(8.25)
+        body = json.dumps(forecast).encode("utf-8")
+        cases = (
+            ("gzip", gzip.compress(body)),
+            ("deflate", zlib.compress(body)),
+            (None, body),
+        )
+        for encoding, response_body in cases:
+            with self.subTest(encoding=encoding):
+                self.cache.unlink(missing_ok=True)
+                headers = {"Content-Encoding": encoding} if encoding else {}
+                with patch.object(
+                    probe,
+                    "urlopen",
+                    return_value=FakeResponse(200, response_body, headers),
+                ):
+                    self.assertEqual(probe.read_forecast(offline=False), forecast)
+
+    def test_bad_encoding_responses_preserve_cache_and_output(self):
+        self.write_cache(forecast_at(2.0), http_date(timedelta(hours=-1)))
+        self.output.parent.mkdir(parents=True, exist_ok=True)
+        self.output.write_text("previous output\n", encoding="utf-8")
+        original_cache = self.cache.read_bytes()
+        original_output = self.output.read_bytes()
+        cases = (
+            ("gzip", b"not gzip data"),
+            ("deflate", b"not deflate data"),
+            ("br", b"opaque body"),
+        )
+        for encoding, body in cases:
+            with self.subTest(encoding=encoding):
+                response = FakeResponse(
+                    200,
+                    body,
+                    {"Content-Encoding": encoding},
+                )
+                with patch.object(probe, "urlopen", return_value=response):
+                    with patch("sys.argv", ["probe.py"]):
+                        with self.assertRaises(SystemExit) as error:
+                            probe.main()
+                self.assertEqual(error.exception.code, 2)
+                self.assertEqual(self.cache.read_bytes(), original_cache)
+                self.assertEqual(self.output.read_bytes(), original_output)
 
     def test_304_reuses_response_and_updates_provided_metadata(self):
         saved_forecast = forecast_at(4.0)
