@@ -1,5 +1,29 @@
 # W43 context notes
 
+## Task 006 — MCP checkpoint (2026-10-28)
+
+- The filesystem MCP server allowed `fixtures/` and rejected reading
+  `AGENTS.md` outside that directory.
+- The custom MET server connected with one forecast tool in Codex CLI 0.165.0.
+  It reported 24 usable entries from `2026-10-03T09:00:00Z` to
+  `2026-10-04T08:00:00Z`. Their minimum is 5.3 °C at
+  `2026-10-04T06:00:00Z`. They are historical forecasts, not observations or
+  current weather.
+- Module-mode launching fixed the package-import failure. Filtering usable
+  entries before limiting fixed selection when an earlier entry lacked
+  temperature.
+- The stdio regression timed out inside Codex's command environment and
+  passed directly in WSL. The precise environmental cause remains
+  unconfirmed.
+- The complete `.venv` suite passed directly in WSL: 35 tests, no skips, exit
+  code 0. The full-suite command for a normal WSL shell is
+  `.venv/bin/python -m unittest discover -s tests`.
+- No live MET request was made.
+
+The MCP demo selects up to 24 usable entries, while the existing workflow
+summary uses all probe items. Reviewer subagents and agent SDKs were covered
+conceptually; the implemented workflow uses Bash orchestration and MCP tools.
+
 ## Task 005 — checked workflow checkpoint (2026-10-28)
 
 - The deterministic suite passed all 28 tests.

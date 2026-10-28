@@ -113,3 +113,25 @@ mention, inclusion of the input minimum and maximum with °C, and that every
 temperature stated with °C occurs in the probe input. It does not check the
 summary’s historical/current framing, whether other claims are supported, or
 that a generated summary was produced offline.
+
+## W43 custom MCP forecast demo
+
+Install the pinned optional MCP dependency from `requirements-mcp.txt` in
+`.venv`, then start the demo from the repository root:
+
+```sh
+codex -c 'mcp_servers.met.enabled=true'
+```
+
+The `forecast(hours=24)` tool reads the saved fixture only and returns up to 24
+historical forecast entries beginning at its first timestamp. These entries
+are not current weather or observations; the parameter limits the number of
+entries and does not guarantee a duration in hours. MET Norway data is provided
+under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+The MCP demo selects up to 24 usable entries. The existing workflow summary
+uses all probe items. Run the complete test suite from a normal WSL shell with:
+
+```sh
+.venv/bin/python -m unittest discover -s tests
+```

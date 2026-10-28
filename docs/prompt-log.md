@@ -1,5 +1,27 @@
 # Prompt log
 
+## 2026-10-28 — Task 006 W43 MCP checkpoint
+Prompt summary: document the completed offline MCP demonstration, observed
+filesystem and forecast tool behavior, implementation fixes, regression
+results, and the boundaries of what the workflow implements.
+
+The filesystem MCP server allowed `fixtures/` and rejected reading `AGENTS.md`
+outside it. The custom MET server connected in Codex CLI 0.165.0 with one
+forecast tool and returned 24 usable historical forecast entries from
+`2026-10-03T09:00:00Z` through `2026-10-04T08:00:00Z`; their minimum was 5.3 °C
+at `2026-10-04T06:00:00Z`. They are not observations or current weather.
+Module-mode launching fixed the package-import failure, and filtering before
+limiting fixed selection when an earlier entry lacked temperature.
+
+The stdio regression timed out inside Codex's command environment but passed
+directly in WSL; the precise environmental cause remains unconfirmed. The full
+`.venv` suite passed in WSL with 35 tests, no skips, and exit code 0. Run it
+from a normal WSL shell with `.venv/bin/python -m unittest discover -s tests`.
+No live MET request was made. The MCP demo selects up to 24 usable entries,
+while the workflow summary uses all probe items. Reviewer subagents and agent
+SDKs were covered conceptually; the implemented workflow uses Bash
+orchestration and MCP tools.
+
 ## 2026-10-28 — Task 005 checked workflow checkpoint
 Prompt summary: document and commit the completed orchestration checkpoint,
 including the successful offline run, checker result, evidence location, and
