@@ -229,7 +229,7 @@ def main():
             continue
         items.append(
             {
-                "title": "Hamar forecast",
+                "title": "",
                 "date": entry["time"],
                 "temperature_c": temperature,
             }
