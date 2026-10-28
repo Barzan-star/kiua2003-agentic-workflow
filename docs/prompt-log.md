@@ -1,5 +1,16 @@
 # Prompt log
 
+## 2026-10-28 — Task 008 offline CI checkpoint
+Prompt summary: prepare the offline GitHub Actions checks and record local
+verification plus the fresh-context task-planning check.
+
+Local verification passed: SDK imports for `Client` and `MCPServer`, Bash
+syntax, both runner dry-runs, offline probe and checker, all 35 tests,
+whitespace check, and protected-path diff check. GitHub Actions has not run
+yet. The fresh-context `$task-plan 005` test recognised the completed
+implementation, marked acceptance commands **NOT RUN**, and left the worktree
+clean.
+
 ## 2026-10-28 — Task 006 W43 MCP checkpoint
 Prompt summary: document the completed offline MCP demonstration, observed
 filesystem and forecast tool behavior, implementation fixes, regression

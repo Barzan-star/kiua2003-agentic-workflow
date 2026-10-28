@@ -1,0 +1,59 @@
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  offline-checks:
+    name: Offline checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Create virtual environment
+        run: python -m venv .venv
+
+      - name: Install MCP requirements
+        run: .venv/bin/python -m pip install -r requirements-mcp.txt
+
+      - name: Verify MCP SDK import
+        run: .venv/bin/python -c 'from mcp import Client; from mcp.server.mcpserver import MCPServer'
+
+      - name: Check runner shell syntax
+        run: bash -n harness/run.sh
+
+      - name: Preview offline runner
+        run: ./harness/run.sh --offline --dry-run
+
+      - name: Preview standard runner
+        run: ./harness/run.sh --dry-run
+
+      - name: Run offline probe
+        run: .venv/bin/python harness/probe.py --offline
+
+      - name: Check probe output
+        run: .venv/bin/python eval/check_probe.py
+
+      - name: Run unit tests
+        run: .venv/bin/python -m unittest discover -s tests
+
+      - name: Check diff whitespace
+        run: git diff --check
+
+      - name: Check fixtures are unchanged
+        run: git diff --exit-code -- fixtures/

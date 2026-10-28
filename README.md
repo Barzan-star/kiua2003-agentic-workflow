@@ -143,3 +143,37 @@ uses all probe items. Run the complete test suite from a normal WSL shell with:
 ```sh
 .venv/bin/python -m unittest discover -s tests
 ```
+
+## GitHub Actions checks
+
+The `checks` workflow runs on pull requests and pushes to `main`. Its single
+Ubuntu 24.04 job installs the MCP requirements in `.venv`, confirms that the
+MCP SDK imports, and runs these checks:
+
+- `bash -n harness/run.sh`
+- `./harness/run.sh --offline --dry-run`
+- `./harness/run.sh --dry-run`
+- `.venv/bin/python harness/probe.py --offline`
+- `.venv/bin/python eval/check_probe.py`
+- `.venv/bin/python -m unittest discover -s tests`
+- `git diff --check`
+- `git diff --exit-code -- fixtures/`
+
+Reproduce the CI checks locally from the repository root with:
+
+```sh
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements-mcp.txt
+.venv/bin/python -c 'import mcp'
+bash -n harness/run.sh
+./harness/run.sh --offline --dry-run
+./harness/run.sh --dry-run
+.venv/bin/python harness/probe.py --offline
+.venv/bin/python eval/check_probe.py
+.venv/bin/python -m unittest discover -s tests
+git diff --check
+git diff --exit-code -- fixtures/
+```
+
+Here, offline means the probe uses the saved fixture and test inputs are
+mocked. Installing dependencies still downloads packages.

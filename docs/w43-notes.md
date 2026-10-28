@@ -1,5 +1,15 @@
 # W43 context notes
 
+## Task 008 — offline CI checkpoint (2026-10-28)
+
+- Local verification passed: SDK imports (`Client` and `MCPServer`), Bash
+  syntax, both runner dry-runs, offline probe and checker, all 35 tests,
+  whitespace check, and protected-path diff check.
+- GitHub Actions has not run yet.
+- The fresh-context `$task-plan 005` test passed: it recognised the completed
+  implementation, marked acceptance commands **NOT RUN**, and left the
+  worktree clean.
+
 ## Task 006 — MCP checkpoint (2026-10-28)
 
 - The filesystem MCP server allowed `fixtures/` and rejected reading
