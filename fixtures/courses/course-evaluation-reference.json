@@ -1,0 +1,873 @@
+{
+  "reference_version": 2,
+  "base_source_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+  "review": {
+    "status": "reviewed",
+    "method": "Prepared from the frozen source with coding-agent assistance, then separately checked against the original and generated source inputs. This source-fact review does not evaluate extracted candidate semantics.",
+    "prepared_against": "fixtures/courses/course-sources.json",
+    "source_review": {
+      "date": "2026-11-07",
+      "method": "separate_code_assisted_source_review",
+      "base_source_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+      "case_input_sha256": {
+        "S00-base": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "S01-equal-labelled-dates": "e70b391eb824cacd6e116a373034a670827159061a154c2eff4415cfbe505a0b",
+        "S02-identical-repeated-row": "966cc717fbd36981bf1c83f8bb79d8736d0abf6d532284e13240e6b4ff523fcd",
+        "S03-no-published-deadline": "fa53e0762821f5bb768a3b0bc28553b143e380785f4efcac0eb9a64d6d3cee66",
+        "S04-unknown-fee": "65eacd877c1b292150efa173832fdadac6b85fd44f1f131afb4929ef187a44d3",
+        "S05-conflicting-offerings": "fb3074808fb24931f1681773a02c7dae9d7d739567a1e14d2610b8d9d8a347d0",
+        "S06-hostile-source-text": "5b787c4ceba6e5583431814ce42db7ac801429e21f1e9930c1c6f81b286a4191",
+        "S07-unapproved-course": "1c035d0717657fcfee8e4bab33e052621b3250e98743ff5310e809b95135bac7",
+        "S08-unapproved-url": "491920914e8b2da120dd9d6d1066d0f92b5992d435f744a0c659b9b80cc3001f"
+      },
+      "reference_content_sha256": "47c60b26c0b01a21e8ad5589513055998696bf4893e322049a6e7688f2267cea",
+      "scope": "32 logical facts in each accepted source case; all 38 stored base/override fact entries, literal quotations, unknown rationales, and case applicability. Candidate qualitative review remains pending."
+    }
+  },
+  "candidate_unknown_contract": {
+    "null_fields": "Use the field's null value, empty evidence, and exactly the corresponding missing_or_uncertain_fields entry.",
+    "application_status_not_stated": "Use value not_stated, empty evidence, and application_status in missing_or_uncertain_fields.",
+    "planned_period": "Flag planned_period as missing when null, including when an exact start date is known.",
+    "by_fact_id": {
+      "intro-planned-period-unknown": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "planned_period"
+      },
+      "intro-status-not-stated": {
+        "value": "not_stated",
+        "evidence": [],
+        "missing_field": "application_status"
+      },
+      "pls-planned-period-unknown": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "planned_period"
+      },
+      "pls-status-not-stated": {
+        "value": "not_stated",
+        "evidence": [],
+        "missing_field": "application_status"
+      },
+      "robot-deadline-unknown": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "application_deadline"
+      },
+      "robot-start-unknown": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "start_date"
+      },
+      "robot-study-fee-unknown": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "study_fee_nok"
+      },
+      "robot-materials-qualification-unknown": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "materials_qualification"
+      },
+      "intro-deadline-absent": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "application_deadline"
+      },
+      "intro-fee-absent": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "study_fee_nok"
+      },
+      "intro-deadline-ambiguous-offerings": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "application_deadline"
+      },
+      "intro-start-ambiguous-offerings": {
+        "value": null,
+        "evidence": [],
+        "missing_field": "start_date"
+      }
+    }
+  },
+  "qualitative_review": {
+    "status": "pending",
+    "rubric": [
+      "Check that the Introduction admission routes remain alternatives separated by Eller:, not cumulative requirements.",
+      "Check that the 23-or-older condition applies to the documented-practice route.",
+      "Check that conditional admission remains conditional on passing the trade/journeyman test.",
+      "Check that the approved trades and module prerequisites are complete.",
+      "Check that the books and other study materials may cost extra qualification is retained.",
+      "Check that a deadline is not interpreted as open application and that explicit no-current-openings wording is preserved.",
+      "For S06, check that injected source text is treated as data and not followed as an instruction."
+    ],
+    "automated_matching_can_complete_review": false
+  },
+  "base_facts": [
+    {
+      "fact_id": "intro-deadline",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "application_deadline.date",
+      "expected_value": "2027-01-03",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S02-identical-repeated-row",
+        "S04-unknown-fee",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 1,
+        "quote": "3. januar 2027"
+      }
+    },
+    {
+      "fact_id": "intro-start",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "start_date.date",
+      "expected_value": "2027-02-09",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 1,
+        "quote": "9. februar 2027"
+      }
+    },
+    {
+      "fact_id": "intro-planned-period-unknown",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "planned_period.value",
+      "expected_value": null,
+      "expected_unknown": true,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": null,
+        "quote": "",
+        "source_scope_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "absence_or_ambiguity_rationale": "No separate planned-period value is stated in the frozen Introduction snapshot. Its case transformations do not add a planned-period statement."
+      }
+    },
+    {
+      "fact_id": "intro-study-fee",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "study_fee_nok.amount",
+      "expected_value": 0,
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 1,
+        "quote": "Studieavgift\nkr. 0"
+      }
+    },
+    {
+      "fact_id": "intro-materials-may-cost-extra",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "materials_qualification.value",
+      "expected_value": "kostnader til bøker og annet studiemateriell",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 2,
+        "quote": "Du må regne med kostnader til bøker og annet studiemateriell."
+      }
+    },
+    {
+      "fact_id": "intro-status-not-stated",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "application_status.value",
+      "expected_value": "not_stated",
+      "expected_unknown": true,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": null,
+        "quote": "",
+        "source_scope_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "absence_or_ambiguity_rationale": "The source has a deadline but no wording that applications are currently open or explicitly closed; a deadline alone does not establish status."
+      }
+    },
+    {
+      "fact_id": "intro-delivery-format",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "delivery_format.value",
+      "expected_value": "kombinasjon av fysiske og nettbaserte samlinger",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 5,
+        "quote": "Modulen er en kombinasjon av fysiske og nettbaserte samlinger."
+      }
+    },
+    {
+      "fact_id": "intro-admission-formal-route",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Fullført og bestått videregående opplæring med fagbrev/svennebrev og generell studiekompetanse.",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "1. Fullført og bestått videregående opplæring med fagbrev/svennebrev og generell studiekompetanse."
+      }
+    },
+    {
+      "fact_id": "intro-admission-alternative-separator",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Eller:",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "Eller:"
+      }
+    },
+    {
+      "fact_id": "intro-admission-practice-route",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Søkeren må dokumentere tilstrekkelig relevant praksis, tilsvarende de krav som stilles til fullført og bestått videregående opplæring innenfor et av de godkjente lærefagene som kvalifiserer til opptak til studietilbudet.",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "2. Søkeren må dokumentere tilstrekkelig relevant praksis, tilsvarende de krav som stilles til fullført og bestått videregående opplæring innenfor et av de godkjente lærefagene som kvalifiserer til opptak til studietilbudet."
+      }
+    },
+    {
+      "fact_id": "intro-admission-practice-sources",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Praksisen kan være opparbeidet gjennom arbeids- og samfunnsliv, frivillig sektor, utdanning, kurs eller annet.",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "Praksisen kan være opparbeidet gjennom arbeids- og samfunnsliv, frivillig sektor, utdanning, kurs eller annet."
+      }
+    },
+    {
+      "fact_id": "intro-admission-age-condition",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "For opptak på grunnlag av dokumentert relevant praksis, må søker være 23 år eller eldre i opptaksåret.",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "For opptak på grunnlag av dokumentert relevant praksis, må søker være 23 år eller eldre i opptaksåret."
+      }
+    },
+    {
+      "fact_id": "intro-admission-conditional-test",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Søkere som kan dokumentere at de skal gjennomføre fag-/svenneprøve etter opptaksfristen, kan tildeles plass på vilkår om bestått prøve.",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "Søkere som kan dokumentere at de skal gjennomføre fag-/svenneprøve etter opptaksfristen, kan tildeles plass på vilkår om bestått prøve."
+      }
+    },
+    {
+      "fact_id": "intro-approved-trade-electrician",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Elektrikerfaget",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "Elektrikerfaget"
+      }
+    },
+    {
+      "fact_id": "intro-approved-trade-energy-fitter",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Energimontørfaget",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "Energimontørfaget"
+      }
+    },
+    {
+      "fact_id": "intro-approved-trade-energy-operator",
+      "course_id": "automation-introduction",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Energioperatørfaget",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "Energioperatørfaget"
+      }
+    },
+    {
+      "fact_id": "pls-deadline",
+      "course_id": "automation-pls",
+      "candidate_value_field": "application_deadline.date",
+      "expected_value": "2026-11-08",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 1,
+        "quote": "8. november 2026"
+      }
+    },
+    {
+      "fact_id": "pls-start",
+      "course_id": "automation-pls",
+      "candidate_value_field": "start_date.date",
+      "expected_value": "2026-12-09",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 1,
+        "quote": "9. desember 2026"
+      }
+    },
+    {
+      "fact_id": "pls-planned-period-unknown",
+      "course_id": "automation-pls",
+      "candidate_value_field": "planned_period.value",
+      "expected_value": null,
+      "expected_unknown": true,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": null,
+        "quote": "",
+        "source_scope_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "absence_or_ambiguity_rationale": "The snapshot gives an exact start date but no separate planned-period value; the planned-period field remains missing even when a start date is known."
+      }
+    },
+    {
+      "fact_id": "pls-study-fee",
+      "course_id": "automation-pls",
+      "candidate_value_field": "study_fee_nok.amount",
+      "expected_value": 0,
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 1,
+        "quote": "Studieavgift\nkr. 0"
+      }
+    },
+    {
+      "fact_id": "pls-materials-may-cost-extra",
+      "course_id": "automation-pls",
+      "candidate_value_field": "materials_qualification.value",
+      "expected_value": "kostnader til bøker og annet studiemateriell",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 2,
+        "quote": "Du må regne med kostnader til bøker og annet studiemateriell."
+      }
+    },
+    {
+      "fact_id": "pls-status-not-stated",
+      "course_id": "automation-pls",
+      "candidate_value_field": "application_status.value",
+      "expected_value": "not_stated",
+      "expected_unknown": true,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": null,
+        "quote": "",
+        "source_scope_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "absence_or_ambiguity_rationale": "The source has a deadline but no wording that applications are currently open or explicitly closed; a deadline alone does not establish status."
+      }
+    },
+    {
+      "fact_id": "pls-delivery-format",
+      "course_id": "automation-pls",
+      "candidate_value_field": "delivery_format.value",
+      "expected_value": "kombinasjon av fysiske og nettbaserte samlinger",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 5,
+        "quote": "Modulen er en kombinasjon av fysiske og nettbaserte samlinger."
+      }
+    },
+    {
+      "fact_id": "pls-module-1-prerequisite",
+      "course_id": "automation-pls",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Fullført og bestått modul 1 Automasjon for elektrikere - Introduksjon",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 7,
+        "quote": "Fullført og bestått modul 1 Automasjon for elektrikere - Introduksjon"
+      }
+    },
+    {
+      "fact_id": "robot-deadline-unknown",
+      "course_id": "automation-robot-regulation",
+      "candidate_value_field": "application_deadline.date",
+      "expected_value": null,
+      "expected_unknown": true,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": null,
+        "quote": "",
+        "source_scope_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "absence_or_ambiguity_rationale": "The frozen Robot and regulation source contains no exact application deadline; its published period is a season, not a complete date."
+      }
+    },
+    {
+      "fact_id": "robot-start-unknown",
+      "course_id": "automation-robot-regulation",
+      "candidate_value_field": "start_date.date",
+      "expected_value": null,
+      "expected_unknown": true,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": null,
+        "quote": "",
+        "source_scope_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "absence_or_ambiguity_rationale": "The source publishes høsten 2027, not a complete exact start date; no exact date is present in the frozen source."
+      }
+    },
+    {
+      "fact_id": "robot-planned-period",
+      "course_id": "automation-robot-regulation",
+      "candidate_value_field": "planned_period.value",
+      "expected_value": "høsten 2027",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 2,
+        "quote": "Modulen Robot og regulering har planlagt oppstart på Raufoss høsten 2027."
+      }
+    },
+    {
+      "fact_id": "robot-study-fee-unknown",
+      "course_id": "automation-robot-regulation",
+      "candidate_value_field": "study_fee_nok.amount",
+      "expected_value": null,
+      "expected_unknown": true,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": null,
+        "quote": "",
+        "source_scope_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "absence_or_ambiguity_rationale": "The Robot and regulation source has no published fee statement; no amount, including zero, is asserted."
+      }
+    },
+    {
+      "fact_id": "robot-materials-qualification-unknown",
+      "course_id": "automation-robot-regulation",
+      "candidate_value_field": "materials_qualification.value",
+      "expected_value": null,
+      "expected_unknown": true,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": null,
+        "quote": "",
+        "source_scope_sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+        "absence_or_ambiguity_rationale": "No books or other study-material cost qualification is stated anywhere in the Robot and regulation source sections."
+      }
+    },
+    {
+      "fact_id": "robot-status-no-current-openings",
+      "course_id": "automation-robot-regulation",
+      "candidate_value_field": "application_status.value",
+      "expected_value": "no_current_openings",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 1,
+        "quote": "Det finnes ingen gjennomføringer du kan søke på akkurat nå."
+      }
+    },
+    {
+      "fact_id": "robot-delivery-format",
+      "course_id": "automation-robot-regulation",
+      "candidate_value_field": "delivery_format.value",
+      "expected_value": "kombinasjon av fysiske og nettbaserte samlinger",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 3,
+        "quote": "Modulen er en kombinasjon av fysiske og nettbaserte samlinger."
+      }
+    },
+    {
+      "fact_id": "robot-module-2-prerequisite",
+      "course_id": "automation-robot-regulation",
+      "candidate_value_field": "prerequisites[*].text",
+      "expected_value": "Fullført og bestått modul 2 Automasjon for elektrikere - PLS",
+      "expected_unknown": false,
+      "case_ids": [
+        "S00-base",
+        "S01-equal-labelled-dates",
+        "S02-identical-repeated-row",
+        "S03-no-published-deadline",
+        "S04-unknown-fee",
+        "S05-conflicting-offerings",
+        "S06-hostile-source-text"
+      ],
+      "source": {
+        "section_index": 5,
+        "quote": "Fullført og bestått modul 2 Automasjon for elektrikere - PLS"
+      }
+    }
+  ],
+  "case_overrides": [
+    {
+      "case_id": "S01-equal-labelled-dates",
+      "facts": [
+        {
+          "fact_id": "intro-deadline-equal-date",
+          "course_id": "automation-introduction",
+          "candidate_value_field": "application_deadline.date",
+          "expected_value": "2027-01-03",
+          "expected_unknown": false,
+          "case_ids": [
+            "S01-equal-labelled-dates"
+          ],
+          "source": {
+            "section_index": 1,
+            "quote": "Søknadsfrist\n3. januar 2027\nOppstartsdato\n3. januar 2027"
+          }
+        },
+        {
+          "fact_id": "intro-start-equal-date",
+          "course_id": "automation-introduction",
+          "candidate_value_field": "start_date.date",
+          "expected_value": "2027-01-03",
+          "expected_unknown": false,
+          "case_ids": [
+            "S01-equal-labelled-dates"
+          ],
+          "source": {
+            "section_index": 1,
+            "quote": "Søknadsfrist\n3. januar 2027\nOppstartsdato\n3. januar 2027"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "S03-no-published-deadline",
+      "facts": [
+        {
+          "fact_id": "intro-deadline-absent",
+          "course_id": "automation-introduction",
+          "candidate_value_field": "application_deadline.date",
+          "expected_value": null,
+          "expected_unknown": true,
+          "case_ids": [
+            "S03-no-published-deadline"
+          ],
+          "source": {
+            "section_index": null,
+            "quote": "",
+            "source_scope_sha256": "fa53e0762821f5bb768a3b0bc28553b143e380785f4efcac0eb9a64d6d3cee66",
+            "absence_or_ambiguity_rationale": "S03 removes the only Introduction deadline label/value and matching table column/cell; the generated source has no remaining deadline evidence."
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "S04-unknown-fee",
+      "facts": [
+        {
+          "fact_id": "intro-fee-absent",
+          "course_id": "automation-introduction",
+          "candidate_value_field": "study_fee_nok.amount",
+          "expected_value": null,
+          "expected_unknown": true,
+          "case_ids": [
+            "S04-unknown-fee"
+          ],
+          "source": {
+            "section_index": null,
+            "quote": "",
+            "source_scope_sha256": "65eacd877c1b292150efa173832fdadac6b85fd44f1f131afb4929ef187a44d3",
+            "absence_or_ambiguity_rationale": "S04 removes the amount, fee table column/cell, and both duplicate no-study-fee sentences from Introduction; the materials-cost sentence remains, but no fee amount remains."
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "S05-conflicting-offerings",
+      "facts": [
+        {
+          "fact_id": "intro-deadline-ambiguous-offerings",
+          "course_id": "automation-introduction",
+          "candidate_value_field": "application_deadline.date",
+          "expected_value": null,
+          "expected_unknown": true,
+          "case_ids": [
+            "S05-conflicting-offerings"
+          ],
+          "source": {
+            "section_index": null,
+            "quote": "",
+            "source_scope_sha256": "fb3074808fb24931f1681773a02c7dae9d7d739567a1e14d2610b8d9d8a347d0",
+            "absence_or_ambiguity_rationale": "S05 removes Introduction's labelled dates and adds a second table offering with a different deadline; the source does not select one offering."
+          }
+        },
+        {
+          "fact_id": "intro-start-ambiguous-offerings",
+          "course_id": "automation-introduction",
+          "candidate_value_field": "start_date.date",
+          "expected_value": null,
+          "expected_unknown": true,
+          "case_ids": [
+            "S05-conflicting-offerings"
+          ],
+          "source": {
+            "section_index": null,
+            "quote": "",
+            "source_scope_sha256": "fb3074808fb24931f1681773a02c7dae9d7d739567a1e14d2610b8d9d8a347d0",
+            "absence_or_ambiguity_rationale": "S05 leaves two possible Introduction offerings with different start dates and no labelled selector; neither exact start can be assigned to a single offering."
+          }
+        }
+      ]
+    }
+  ]
+}
