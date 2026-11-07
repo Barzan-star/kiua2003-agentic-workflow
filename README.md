@@ -87,6 +87,69 @@ pages. It stores labelled source evidence in
 `out/training/course-sources.json`. Source text is untrusted data throughout
 the extraction and comparison workflow.
 
+## Task 013 offline course evaluation
+
+Run the fixed corpus and scoring component controls without model calls or
+source collection:
+
+```sh
+python3 harness/course_evaluation_cases.py --check
+python3 -m unittest discover -s tests -p 'test_course_evaluation.py'
+python3 harness/evaluate_courses.py --replay
+```
+
+Replay checks all nine fixed source cases and all nine declared candidate
+mutations. It generates positive `synthetic_reference` candidates from the
+reviewed reference and source quotations, and records mutations as
+`mutated_candidate` with parent hashes and mutation IDs. These component
+controls are not model accuracy or instruction-resistance performance. The
+independent scorer measures 21 value slots and 17 required-text atoms per
+accepted candidate; its 11 prerequisite atoms have their own coverage result.
+Checker expectations and factual scores are reported separately, and
+provenance groups are never combined. A replay passes only when the fixed case
+set is complete, the checker/render outcomes match, all seven positive scoring
+controls and all nine mutation scoring controls match their per-fact
+expectations, and protected-file integrity passes. Candidate qualitative
+review remains pending.
+
+Each run writes its source inputs, manifests, candidates, exact checker
+feedback, passing render outputs, score details, hash manifest, integrity
+results, and a readable summary into a fresh ignored
+`out/course-evaluations/run-*` directory. It verifies the frozen source,
+reviewed reference, and normal `out/training/` files remain unchanged. There
+is no automatic recorded-model import. Run-directory checks reject destinations
+outside the repository's `out/` or inside `out/training/`, including symlinked
+destinations. Local checker/renderer subprocesses have a 30-second timeout;
+timeouts and dispatch failures retain their actual failure kind and no invented
+child exit code. Failed runs retain partial results, a final error manifest,
+and integrity evidence. Unscored cases remain visible in the planned 147
+positive-control and 189 mutation-control value-slot denominators.
+
+`--actual` exits before subprocess dispatch; bounded model evaluation and
+budget enforcement remain later work. The local component timeout is not a
+model token/cost budget.
+
+### Ordinary-WSL Phase B verification — 2026-11-07
+
+The completed ordinary-WSL verification passed the corpus/reference check for
+all nine source cases, offline replay, the offline probe and checker, and all
+132 repository tests with no skips. Replay matched all 9/9 source preflight
+expectations (7/7 accepted cases and 2/2 expected source rejections), all 5/5
+checker-rejection and 4/4 checker-pass mutation controls, and all 7/7 positive
+and 9/9 mutation scoring controls. All four checker-pass mutations rendered
+without failure. Positive controls scored 147/147 value slots, 119/119
+required-text atoms, and 77/77 prerequisite atoms; mutations scored 180
+correct, 2 missing, and 7 incorrect value slots of 189, with 143/153
+required-text atoms and 90/99 prerequisite atoms covered. Replay integrity
+passed. All six source, reference, and published-output checksum checks,
+whitespace checks, and protected-path diff checks passed.
+
+Verification log: `out/exam/task-013/wsl-phase-b-rW0DJI/verification.log`.
+Replay results: `out/course-evaluations/run-20261107T133047.144244Z-3671390d/results.json`.
+These offline controls do not measure model accuracy or instruction
+resistance. Candidate qualitative review, budget enforcement, and actual model
+evaluation remain work for a later phase.
+
 Run a live collection (refreshes the output, not the offline fixture):
 
 ```sh

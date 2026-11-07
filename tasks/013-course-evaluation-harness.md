@@ -5,9 +5,9 @@
 Add a repeatable evaluation harness for the existing three-course workflow.
 Measure both extraction completeness and factual support against fixed source
 inputs and independently reviewed reference facts. Keep offline replay and
-current model evaluation as separate modes. Phase A implementation and
-verification results are recorded below; no candidate/model evaluation or
-model call is claimed.
+current model evaluation as separate modes. Phase A implementation and Phase
+B component-control results are recorded below; no recorded/actual model
+evaluation or model call is claimed.
 
 The evaluation remains limited to these approved courses and URLs:
 
@@ -250,25 +250,68 @@ Use a fixed, declared set of scalar fields and text atoms. Match records by
 course ID, not array position. Do not claim to enumerate every arbitrary
 natural-language assertion automatically.
 
-For each applicable expected scalar slot, assign exactly one state:
-`correct`, `missing`, or `incorrect`. A known value replaced by null is
-missing; a wrong non-null value is incorrect. A required unknown state is
-correct only when its null/status, empty evidence, and missing-field flags
-follow the extraction contract. Reject boolean-as-number substitutions.
-Report counts, per-field breakdowns, and the fixed expected-slot denominator.
+A replay pass requires the complete fixed case set and independently checked
+per-fact scoring effects for all seven positive controls and all nine mutation
+controls. Each mutation has explicit expected changed states/text atoms;
+unrelated facts must retain their expected results. Check both detail rows
+and summary counts. Keep these scoring expectations separate from checker
+expectations. Empty, incomplete, or mis-scored controls cannot pass.
 
-Report required-text coverage separately. Its denominator is the number of
-applicable, source-grounded text atoms. Search the designated extracted value
-fields, such as `prerequisites[*].text` and `materials_qualification.value`,
-not evidence quotations alone. A complete quotation must not hide an omitted
-condition in the extracted value. Document limited normalization, such as
-case and whitespace folding. Phrase presence measures coverage; it does not
-prove that OR relationships or conditions were interpreted correctly.
+For every candidate against an accepted source case, score 21 declared value
+slots: seven fields (`application_deadline.date`, `start_date.date`,
+`planned_period.value`, `study_fee_nok.amount`,
+`materials_qualification.value`, `application_status.value`, and
+`delivery_format.value`) for each of the three course IDs. Match records by
+`course_id`, never array position. Each slot is `correct`, `missing`, or
+`incorrect`. A null for a known value is `missing`; a wrong non-null value is
+`incorrect`. An absent field/value is `missing`; a malformed non-null value
+is `incorrect`. Missing/invalid candidate files, malformed roots, and
+duplicate course IDs are case-level `unscorable`; to keep the fixed denominator,
+their slots receive `incorrect` with reason kind `unscorable`, and are counted
+separately from factual incorrect claims. Do not report those as populated
+factual claims.
+
+A required-unknown slot is `correct` only if its expected null or
+`not_stated` value, empty evidence, and corresponding
+`missing_or_uncertain_fields` entry all match the separate contract. A missing
+contract flag or nonempty evidence is `incorrect`. Numeric comparison rejects
+booleans, distinguishes numeric zero from null, and compares finite numbers
+without lossy string formatting. Known text-valued slots are correct when the
+reviewed core phrase occurs in the extracted value after case-folding and
+collapsing whitespace only; evidence quotations do not count as extracted
+values.
+
+The scalar state-rate denominator is always 21 per accepted candidate. Report
+correct, missing, and incorrect counts and rates, plus `unscorable` cases and
+slots. If a source/parent failure prevents a candidate from being scored,
+retain the planned group denominator (147 positive-control value slots and
+189 mutation-control value slots), the actual scored denominator, and explicit
+not-scored candidates/slots. Do not silently reduce the group denominator.
+Also report populated-claim error rate as factual incorrect, populated,
+schema-typed scalar values divided by populated, schema-typed scalar slots;
+boolean-as-number and unscorable slots are excluded from this numerator and
+denominator but remain incorrect/unscorable in fixed-slot results. A rate with
+a zero denominator is null, never 0 or 100 percent.
+
+Report required-text coverage separately from scalar slots. For each accepted
+candidate its fixed denominator is 17 source-grounded atoms: the six known
+text-valued scalar facts (three delivery formats, two materials
+qualifications, and Robot and regulation's planned period) plus the 11
+prerequisite atoms (nine Introduction admission atoms and one module
+prerequisite for each other course). Search `planned_period.value`,
+`materials_qualification.value`, `delivery_format.value`, and
+`prerequisites[*].text`, never evidence quotations alone. Report the 11
+prerequisite atoms as a separate coverage result with its own fixed denominator.
+A complete supporting quote cannot hide an omitted extracted condition.
+Normalization is limited to Unicode case-folding and whitespace collapsing.
+Phrase presence measures coverage; it does not establish that OR relationships
+or conditions were interpreted correctly.
 
 Additional metrics are:
 
-- **Incorrect populated scalar claims:** incorrect supported-schema scalar
-  values divided by populated scalar claim slots, with field IDs and reasons.
+- **Incorrect populated scalar claims:** incorrect, populated, schema-typed
+  scalar values divided by populated, schema-typed scalar claim slots, with
+  field IDs and reasons.
   Limit the metric to these declared slots; do not call it an exhaustive count
   of unsupported natural-language claims.
 - **Expected checker rejection controls:** specified checker-reject mutations
@@ -283,7 +326,10 @@ A zero denominator produces a null/not-applicable rate, never a fabricated
 100 percent score or division error. Record malformed outputs, missing
 outputs, dataset/reference errors, and unscorable cases explicitly. Never drop
 failed cases silently from a reported denominator. Keep case-attempt outcome
-counts separate from field scores and show the unscorable count.
+counts separate from field scores and show unscorable counts/slots. Aggregate
+`synthetic_reference`, `mutated_candidate`, and any explicitly imported
+`recorded_model` candidates separately; Phase B does not import recorded
+candidates.
 
 A replay run has two distinct views: whether the harness matched each case's
 expected checker/scorer behavior, and what factual defects the candidate
@@ -380,14 +426,19 @@ synthetic cases use a documented deterministic serialization. Keep synthetic lab
 metadata outside source content; the S06 instruction payload itself is the
 intended source perturbation.
 
-### Phase B and later files (not current Phase A scope)
+### Phase B and later files
 
-- `harness/evaluate_courses.py`: independent mechanical scoring, text coverage,
-  qualitative-review status, replay, evidence, and isolation checks. Actual
-  model execution is disabled until the later bounded-execution task.
-- `tests/test_course_evaluation.py`: metric sensitivity, wrong/missing/null
-  handling, provenance separation, zero denominators, malformed data, replay
-  isolation, and disabled actual execution.
+- `harness/course_evaluation_scoring.py`: independent reference-based scoring
+  for 21 value slots and 17 required-text atoms, including the separately
+  reported 11 prerequisite atoms, fixed denominators, null rates, and explicit
+  unscorable handling. It does not import or consult the production checker.
+- `harness/evaluate_courses.py`: replay orchestration for all fixed source
+  cases and candidate mutations, pure source preflight, actual checker and
+  renderer invocation, provenance separation, run evidence, integrity checks,
+  and readable result summaries. It never dispatches actual model execution.
+- `tests/test_course_evaluation.py`: source/mutation controls, scoring-state
+  sensitivity, reference-integrity refusal, provenance and denominators,
+  malformed candidates, output isolation, and disabled actual execution.
 - README/SPEC updates for implemented replay commands and limitations.
 - Production runner/shared workflow changes, real model execution, enforced
   budget boundary, and workflow-routing tests belong to the later task.
@@ -411,19 +462,22 @@ At specification authoring time, all Phase A commands above were **NOT RUN**.
 The initial preparation and later post-repair verification checkpoints are
 recorded below. The Phase A files are now the contents of this checkpoint.
 
-### Phase B acceptance commands (later)
+### Phase B acceptance commands
 
 ```sh
-python3 harness/evaluate_courses.py --replay
+python3 harness/course_evaluation_cases.py --check
 python3 -m unittest discover -s tests -p 'test_course_evaluation.py'
-python3 -m unittest discover -s tests
-python3 harness/probe.py --offline && python3 eval/check_probe.py
+python3 harness/evaluate_courses.py --replay
 git diff --check
+git diff --cached --check
 ```
 
-All Phase B commands are **NOT RUN** and the interfaces above are planned.
-No actual model command is authorised by this specification phase. Replay
-success is never reported as current-model accuracy.
+At the Phase A checkpoint, Phase B commands were **NOT RUN** and the
+interfaces were planned. Phase B implementation and its actual results are
+recorded after the Phase A checkpoints below. No actual model command is
+enabled. Replay success is never reported as model accuracy or
+instruction-resistance performance. The full repository suite is left for
+ordinary WSL after this Phase B review.
 
 ## Phase A initial preparation checkpoint — 2026-11-07
 
@@ -494,3 +548,118 @@ budget enforcement, or production-runner change was made.
 - The reference source review is complete and hash-bound. Candidate
   qualitative review remains `pending`. Phase B remains unimplemented; no
   scoring, replay, budget enforcement, or model execution was added.
+
+## Initial Phase B implementation checkpoint — 2026-11-07
+
+- Added `harness/course_evaluation_scoring.py` as an independent scorer. It
+  requires the reviewed source record and matching base, generated-case, and
+  reviewed-content hashes before scoring. It does not import the production
+  checker. The seven accepted source cases each score 21 value slots and 17
+  known text atoms; prerequisite coverage is reported separately over 11
+  atoms. Positive controls are generated from reviewed facts and source quotes
+  and labelled `synthetic_reference`.
+- Added `harness/evaluate_courses.py` to replay all nine source cases and all
+  nine mutations in a fresh ignored `out/course-evaluations/run-*` directory.
+  It records source preflight, checker/renderer invocations and exact results,
+  candidate provenance and hashes, score detail, relevant input and
+  implementation hashes, and before/after protected-file hashes. S07/S08 stop
+  at pure preflight. Only checker-passing candidates are rendered. No
+  recorded-model import is implemented.
+- `python3 harness/course_evaluation_cases.py --check` passed all nine source
+  cases (exit 0). `python3 -m unittest discover -s tests -p
+  'test_course_evaluation.py'` passed 15 tests with no skips (exit 0).
+- `python3 harness/evaluate_courses.py --replay` passed (exit 0) in
+  `out/course-evaluations/run-20261107T125143.482270Z-12102324`. All nine
+  source preflight expectations matched: seven accepted cases passed the
+  unchanged checker and renderer; S07 and S08 were rejected before either.
+  The five expected checker-rejection mutations were rejected (5/5); the four
+  expected checker-pass sensitivity controls passed (4/4), and all four were
+  rendered.
+- Positive `synthetic_reference` controls scored 147/147 value slots, 119/119
+  required-text atoms, and 77/77 prerequisite atoms as covered, with zero
+  unscorable candidates. The separate `mutated_candidate` group scored
+  180 correct, 2 missing, and 7 incorrect slots of 189; it covered 143/153
+  required-text atoms and 90/99 prerequisite atoms. These are synthetic
+  component-control results, not model accuracy or instruction-resistance
+  performance. Checker expectation results remain separate from factual
+  scores.
+- The frozen source, reviewed reference, and all three normal training outputs
+  retained their before-run hashes. `git diff --check` and
+  `git diff --cached --check` passed. Command output and exit codes are in
+  `out/exam/task-013/phase-b/`; complete replay evidence is in the run
+  directory above.
+- `--actual` returns a disabled result before subprocess dispatch; the focused
+  tests stub both subprocess dispatch paths. No model or network call was
+  made. Candidate qualitative review remains `pending`; recorded-model import,
+  budget enforcement, and actual model evaluation remain later work. The full
+  repository suite is deferred to ordinary WSL after review.
+
+
+## Phase B review and repairs — 2026-11-07
+
+- A controlled summary-stage fault probe replaced all mutation score reports
+  with their positive-control scores while preserving checker verdicts and
+  candidate/source files. The initial gate incorrectly reported success.
+  The repaired gate rejects this fault and identifies all nine unmet scoring
+  expectations. An empty completed case set is also rejected.
+- Added strict per-fact scoring expectations for positives and every mutation,
+  including unchanged facts and consistency between detailed rows and counts.
+  Checker-pass omission controls now require the scorer to detect their missing
+  fee, admissions, module prerequisite, or materials qualification.
+- Fixed focused tests that assumed `out/` existed. In a fresh checkout, the
+  original 15-test suite had one setup error; the repaired suite passes.
+  Corrected the run-directory collision test to create the actual colliding
+  timestamp/token name and verify that prior evidence remains intact.
+- Before repair, the expanded 25-test suite exposed 9 failures and 4 errors.
+  Additional tests cover source-preflight failures and partial mutation-stage
+  evidence. The final suite passes all 27 Phase B tests and all 95 available
+  course-component tests. At this checkpoint the complete repository suite
+  remained for WSL; its completion is recorded below.
+- Replay output paths reject escapes and training-output overlaps, including
+  symlinks. Local component dispatch is bounded at 30 seconds; timeouts and
+  launch failures retain actual diagnostic output with a null child exit code
+  when no exit code was received. This is not a model spending budget.
+- Error finalisation retains stage/exception details, partial candidates and
+  results, planned and not-scored case counts/slots, and integrity evidence.
+  Missing parent controls remain explicit. Reports use version 2 and bind
+  hashes at the start and end of the run. Phase A data, production code, and
+  existing tests are unchanged.
+- Default repaired replay: `out/course-evaluations/run-20261107T131903.943969Z-e94cbd5d`. All nine source
+  preflight outcomes, 5/5 checker-rejection controls, 4/4 checker-pass controls,
+  7/7 positive scoring controls, and 9/9 mutation scoring controls matched.
+  The factual score totals remain 147/147 positive value slots and
+  180 correct, 2 missing, 7 incorrect mutation slots of 189; known-text
+  coverage remains 119/119 and 143/153 respectively.
+- Independent review logs and the controlled fault probe are included under
+  `out/exam/task-013/phase-b-review-fix/evidence/` after the repair package is
+  extracted. The original Phase B evidence is preserved.
+- `--actual` returned exit 2 without creating a run directory. No model call,
+  source collection, budget-enforcement claim, or candidate semantic review
+  was made. At this checkpoint full post-repair ordinary-WSL verification had
+  **NOT RUN**.
+
+
+## Completed ordinary-WSL Phase B verification — 2026-11-07
+
+- The corpus/reference check passed for all nine source cases. Offline replay
+  passed with all nine source preflight expectations matched: seven accepted
+  cases and two expected source rejections. All 5/5 checker-rejection
+  mutations and 4/4 checker-pass sensitivity mutations matched, and all four
+  checker-pass mutations rendered without failure.
+- All seven positive and nine mutation scoring controls matched. Positive
+  `synthetic_reference` controls scored 147/147 value slots, 119/119
+  required-text atoms, and 77/77 prerequisite atoms. The `mutated_candidate`
+  controls scored 180 correct, 2 missing, and 7 incorrect value slots of
+  189, with 143/153 required-text atoms and 90/99 prerequisite atoms covered.
+  Replay integrity passed; these synthetic results are not model accuracy or
+  instruction-resistance performance.
+- The offline probe and checker passed. All 132 repository tests passed with
+  no skips. All six source, reference, and published-output checksum checks
+  passed. Whitespace and protected-path diff checks passed.
+- Verification log:
+  `out/exam/task-013/wsl-phase-b-rW0DJI/verification.log`.
+  Detailed replay results:
+  `out/course-evaluations/run-20261107T133047.144244Z-3671390d/results.json`.
+- Candidate qualitative review, budget enforcement, and actual model
+  evaluation remain future work. No model evaluation or source collection was
+  performed in this verification.

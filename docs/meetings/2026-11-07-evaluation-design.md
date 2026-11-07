@@ -27,11 +27,12 @@ Date: 2026-11-07
 - The frozen source fixture and `out/training/course-sources.json`, `courses.json`, and `comparison.md` remained byte-for-byte unchanged. Their hashes are recorded in `out/exam/task-013/phase-a-checks.log`.
 - Complete commands, outputs, and exit codes are in `out/exam/task-013/phase-a-checks.log`. The review ZIP is `out/exam/task-013/task-013-corpus-review.zip`.
 
-## Remaining work and status
+## Remaining work and status at the initial preparation checkpoint
 
 - Source values, quotations, unknown rationales, and case coverage have now been checked in the separate review below. Reference status is `reviewed`, with a dated, hash-bound record. This is not a claim of human review or candidate semantic evaluation.
 - Qualitative review of candidate semantics remains `pending`.
-- Phase B and later bounded model-evaluation work are not implemented. Their acceptance commands remain **NOT RUN**.
+- At this checkpoint Phase B and later bounded model-evaluation work were not
+  implemented; their acceptance commands were **NOT RUN**.
 - No real model execution, network collection, scoring, replay, or production-runner change occurred in this phase.
 
 
@@ -58,9 +59,10 @@ Date: 2026-11-07
   as `task-013-phase-a-v2`. The source-review record binds the reviewed facts
   to the original source and every generated case hash. Corpus checking never
   completes candidate qualitative review.
-- Phase B, budget enforcement, and real-model evaluation remain unimplemented.
+- At this source-review checkpoint Phase B, budget enforcement, and real-model
+  evaluation remained unimplemented.
 
-## Post-repair ordinary-WSL verification — 2026-11-07
+## Phase A post-repair ordinary-WSL verification checkpoint — 2026-11-07
 
 - The corpus/reference check passed for all nine source cases.
 - `python3 harness/probe.py --offline && python3 eval/check_probe.py` passed.
@@ -72,3 +74,89 @@ Date: 2026-11-07
   `out/exam/task-013/wsl-review-gTgl8K/verification.log`.
 - The reference source review is complete. Candidate qualitative review
   remains `pending`; Phase B remains unimplemented.
+
+## Initial Phase B implementation checkpoint — 2026-11-07
+
+- Added a standard-library scorer separate from `eval/check_courses.py`. It
+  verifies the reviewed reference and its source, generated-case, and content
+  hashes before scoring. Each accepted candidate has 21 value slots and 17
+  known text atoms; the 11 prerequisite atoms have a separate coverage result.
+- Added offline replay for all nine source cases and nine candidate mutations.
+  Positive controls are `synthetic_reference`; mutations are
+  `mutated_candidate` with source case, mutation ID, parent hash, and candidate
+  hash. The replay stores generated inputs/manifests, checker feedback,
+  applicable rendered outputs, per-field scores, run/input/implementation
+  hashes, integrity results, and a readable summary. It does not import
+  recorded-model candidates.
+- Corpus/reference validation passed for nine source cases. The focused Phase B
+  suite passed all 15 tests with no skips. The default replay passed in
+  `out/course-evaluations/run-20261107T125143.482270Z-12102324`.
+- All nine source preflight expectations matched: seven accepted cases passed
+  the unchanged checker and renderer; S07/S08 were rejected before checker or
+  rendering. Five expected-rejection mutations were rejected and four
+  checker-pass sensitivity mutations passed; all four passing mutations were
+  rendered.
+- Positive controls covered 147/147 value slots, 119/119 known-text atoms,
+  and 77/77 prerequisite atoms. Mutation controls scored 180 correct, 2
+  missing, and 7 incorrect value slots of 189, with 143/153 known-text atoms
+  and 90/99 prerequisite atoms covered. These synthetic component outcomes do
+  not measure model accuracy or instruction resistance; checker outcomes are
+  reported separately from factual defects.
+- The frozen source, reviewed reference, and all three normal training outputs
+  retained their hashes. Both Git diff checks passed. Commands and exit codes
+  are in `out/exam/task-013/phase-b/`; full replay evidence is in the run
+  directory above. The complete repository suite is deferred to ordinary WSL
+  after review.
+- `--actual` is disabled before subprocess dispatch. No model or network call
+  was made. Candidate qualitative review remains `pending`; actual evaluation,
+  budget enforcement, and recorded-model import remain later work.
+
+
+## Phase B review and regression repair
+
+- Found that overall replay success depended on checker/render outcomes but
+  did not assert the scorer's expected effects. A controlled score-report
+  mutation made every deliberate fault appear perfect, yet the initial gate
+  passed. The repaired gate rejects it and reports all nine missed effects.
+- Require the complete case set, all seven positive scoring expectations,
+  all nine mutation scoring expectations, consistent detail/count results,
+  and input/output integrity for a replay pass. Expected checker results and
+  expected scoring results are reported separately.
+- Fixed fresh-checkout test setup and the collision test. Added output-path
+  guards, bounded component dispatch, typed schema/provenance checks, and
+  failure finalisation with stage traces, partial evidence, and unscored slots.
+- The expanded pre-repair run had 9 failures and 4 errors in 25 tests.
+  Final review checks passed 27 Phase B tests and 95 available course-component
+  tests. Repaired replay `out/course-evaluations/run-20261107T131903.943969Z-e94cbd5d` passed 7/7 positive
+  and 9/9 mutation scoring controls, as well as the original source/checker
+  expectations. At this checkpoint full repository verification remained
+  pending in ordinary WSL; its completion is recorded below.
+- Phase A corpus/reference and production code/test hashes are unchanged.
+  The initial replay evidence is retained. No real-model evaluation or source
+  collection was performed; candidate qualitative review remains pending.
+
+
+## Completed ordinary-WSL Phase B verification — 2026-11-07
+
+- Corpus/reference validation passed for all nine source cases. Offline replay
+  passed: all nine source preflight expectations matched, with seven accepted
+  cases and two expected source rejections. All 5/5 expected checker-rejection
+  mutations and 4/4 checker-pass sensitivity mutations matched; all four
+  checker-pass mutations rendered without failure.
+- Scoring controls matched 7/7 positive and 9/9 mutation expectations.
+  Positive `synthetic_reference` controls scored 147/147 value slots, 119/119
+  required-text atoms, and 77/77 prerequisite atoms. `mutated_candidate`
+  controls scored 180 correct, 2 missing, and 7 incorrect value slots of 189,
+  with 143/153 required-text atoms and 90/99 prerequisite atoms covered.
+  Replay integrity passed. These synthetic controls do not measure model
+  accuracy or instruction resistance.
+- The offline probe and checker passed. All 132 repository tests passed with
+  no skips. All six source, reference, and published-output checksum checks
+  passed, along with whitespace and protected-path diff checks.
+- Verification log:
+  `out/exam/task-013/wsl-phase-b-rW0DJI/verification.log`. Detailed replay
+  results:
+  `out/course-evaluations/run-20261107T133047.144244Z-3671390d/results.json`.
+- Candidate qualitative review, budget enforcement, and actual model
+  evaluation remain future work. No model evaluation or source collection was
+  performed.
