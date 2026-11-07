@@ -294,11 +294,55 @@ def _safe_identifier(value):
 
 def _response_identifier(response, name):
     value = _field(response, name)
-    if value is None and name == "request_id":
-        value = _field(response, "_request_id")
     identifier = _safe_identifier(value)
     prefix = "resp_" if name == "id" else "req_"
     return identifier if identifier and identifier.startswith(prefix) and len(identifier) > len(prefix) else None
+
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON field")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value):
+    raise ValueError("nonstandard JSON constant")
+
+
+def _read_raw_response(raw, *, expected_object):
+    """Decode original HTTP bytes without SDK/Pydantic value coercion.
+
+    The SDK's public raw-response surface supplies the native HTTP response.
+    Its typed ``parse()`` path must never be used for budget decisions.
+    """
+    response = raw.http_response
+    try:
+        if type(response.status_code) is not int or response.status_code != 200:
+            raise CourseProtocolError("unexpected raw response status")
+        content_type = response.headers.get("content-type", "")
+        if (not isinstance(content_type, str)
+                or content_type.partition(";")[0].strip().lower() != "application/json"):
+            raise CourseProtocolError("raw response was not JSON")
+        content = response.content
+        if type(content) is not bytes:
+            raise CourseProtocolError("raw response bytes are unavailable")
+        try:
+            payload = json.loads(content.decode("utf-8"),
+                                 object_pairs_hook=_unique_json_object,
+                                 parse_constant=_reject_json_constant)
+        except (ValueError, UnicodeError):
+            raise CourseProtocolError("raw response contained invalid or ambiguous JSON") from None
+        if not isinstance(payload, dict) or payload.get("object") != expected_object:
+            raise CourseProtocolError("raw response object did not match the endpoint")
+        request_id = _safe_identifier(response.headers.get("x-request-id"))
+        if not request_id or not request_id.startswith("req_") or len(request_id) <= 4:
+            request_id = None
+        return payload, request_id
+    finally:
+        response.close()
 
 
 def _optional_detail(parent, detail_name, field_name):
@@ -307,10 +351,7 @@ def _optional_detail(parent, detail_name, field_name):
         return 0
     if isinstance(details, Mapping):
         return details[field_name] if field_name in details else 0
-    try:
-        return getattr(details, field_name)
-    except AttributeError:
-        return 0
+    raise CourseProtocolError("usage detail must be a JSON object when present")
 
 
 def _parse_usage(response):
@@ -418,13 +459,23 @@ class OpenAICourseClient:
 
         timeout = self._client_contract()
 
+        try:
+            count_call = self._client.responses.input_tokens.with_raw_response.count
+            create_call = self._client.responses.with_raw_response.create
+            if not callable(count_call) or not callable(create_call):
+                raise TypeError("raw response methods are unavailable")
+        except Exception:
+            self._block_known_failure("client_contract_invalid")
+            raise CourseClientError("client must provide raw count and generation responses") from None
+
         count_kwargs = request.as_dict()
         try:
-            count_result = self._client.responses.input_tokens.count(**count_kwargs)
+            count_raw = count_call(**count_kwargs)
+            count_result, count_request_id = _read_raw_response(
+                count_raw, expected_object="response.input_tokens")
             counted_input = _field(count_result, "input_tokens")
             if type(counted_input) is not int or counted_input <= 0:
                 raise CourseClientError("input-token count response was invalid")
-            count_request_id = _response_identifier(count_result, "request_id")
         except (KeyboardInterrupt, SystemExit):
             self._block_known_failure("request_interrupted")
             raise
@@ -476,13 +527,22 @@ class OpenAICourseClient:
             "service_tier": "default",
         })
         try:
-            response = self._client.responses.create(**create_kwargs)
+            generation_raw = create_call(**create_kwargs)
         except (KeyboardInterrupt, SystemExit):
             self._block_uncertain(handle, "request_interrupted")
             raise
         except Exception:
             self._block_uncertain(handle, "dispatch_outcome_uncertain")
             raise CourseClientError("generation request failed; run is permanently blocked") from None
+
+        try:
+            response, request_id = _read_raw_response(generation_raw, expected_object="response")
+        except (KeyboardInterrupt, SystemExit):
+            self._block_uncertain(handle, "request_interrupted")
+            raise
+        except Exception:
+            self._block_uncertain(handle, "usage_untrusted")
+            raise CourseClientError("generation raw response is untrusted; run is permanently blocked") from None
 
         try:
             status = _field(response, "status")
@@ -497,7 +557,6 @@ class OpenAICourseClient:
 
             returned_model = _safe_identifier(_field(response, "model"))
             response_id = _response_identifier(response, "id")
-            request_id = _response_identifier(response, "request_id")
             usage = _parse_usage(response)
             if usage is None:
                 self._block_uncertain(handle, "usage_untrusted")
@@ -537,6 +596,7 @@ class OpenAICourseClient:
                 payload_sha256=request.sha256,
             )
         except CourseClientError:
+            self._block_uncertain(handle, "protocol_failure")
             raise
         except (KeyboardInterrupt, SystemExit):
             self._block_uncertain(handle, "request_interrupted")

@@ -357,3 +357,176 @@ isolated and unwired, and actual evaluation remains disabled. SDK installation,
 live requests, provider count agreement, and provider enforcement remain
 **NOT TESTED**. Earlier checkpoints above are historical records of their
 respective review stages.
+
+## Phase B1 scope and acceptance criteria (recorded before implementation)
+
+Phase B1 adds only the following six paths:
+
+- `tasks/014-bounded-model-workflow.md`
+- `docs/meetings/2026-11-07-budget-design.md`
+- `requirements-model.txt`
+- `tests/test_openai_course_sdk.py`
+- `.github/workflows/checks.yml`
+- `README.md`
+
+Pin `openai==3.46.0`. Use the already installed isolated SDK environment and
+inspect its real OpenAI and HTTPX2 interfaces before implementation. Add
+offline contract tests around the existing `OpenAICourseClient` and
+`TokenLedger`, using the real SDK count/create methods with HTTPX2's native
+in-memory `MockTransport`. The transport must use a synthetic API key and an
+explicit `.invalid` origin; it must not use runtime credentials or make
+network requests. Contract tests must fail clearly when the SDK is missing or
+incompatible. Keep the existing SDK-independent Phase A tests unchanged.
+
+The tests must verify identical serialized count/create input, instructions,
+schema, model, and reasoning settings; output cap and response-only defaults;
+durable reservation before generation dispatch; usage parsing with cached
+input and reasoning details charged once; reuse of one ledger and refusal of
+an unaffordable request; count/create HTTP failures with exact request counts
+and automatic retries disabled; timeout retention and blocking; malformed
+and contradictory usage including boolean/string token fields; and
+incomplete, unexpected-model, tool, and refusal outputs. All requests and
+responses are synthetic test fixtures. Never retain authorization headers,
+raw credentials, or client representations.
+
+Update CI to install `requirements-mcp.txt` and `requirements-model.txt`,
+explicitly verify OpenAI version `3.46.0` and required imports before test
+discovery, preserve current checks, permissions, and triggers, and make no
+credential-bearing or model calls. Update README dependency and test
+instructions. Record signature inspection and actual Phase B1 test results in
+this task and the budget design record, while preserving earlier checkpoints.
+
+Run `tests/test_openai_course_sdk.py` and both Phase A suites with the
+provided isolated SDK Python. Run `git diff --check` and verify all existing
+implementation code, checkers, fixtures, permissions, and tests remain
+unchanged. Save exact commands, outputs, and exit codes under ignored
+`out/exam/task-014/`, and create
+`out/exam/task-014/task-014-sdk-contract-review.zip` containing only the six
+scoped files and verification evidence. Do not install packages, collect
+sources, run models, wire production/evaluation, stage, commit, push, or create
+tags. Leave complete SDK-plus-MCP repository verification for ordinary WSL.
+
+If a contract test reveals an adapter or ledger defect, preserve the failing
+regression and its output without weakening validation or changing production
+code in B1. Live provider validation, credentials, production integration,
+and actual evaluation remain pending.
+
+### Historical Phase B1 execution results before raw-response repair (2026-11-07)
+
+The isolated environment and SDK signatures matched the successful saved
+inspection: Python 3.12.3, OpenAI 3.46.0, HTTPX2 2.16.0; the real count/create
+methods accept the request contract, and HTTPX2 provides native
+`MockTransport(handler)`. No network or provider call was made.
+
+- `test_openai_course_sdk.py`: **9 tests run, 2 failures, exit code 1**. The
+  real SDK response parser coerces raw JSON `true` to integer `1` and string
+  `"50"` to integer `50`; the existing adapter then accepts both as valid
+  usage. The failing boolean and string regressions remain in the suite and
+  their exact output is preserved. Production code was not changed.
+- `test_model_budget.py`: **19 passed**, exit code 0.
+- `test_openai_course_client.py`: **37 passed**, exit code 0.
+- The Phase A suites were unchanged. Complete SDK-plus-MCP repository
+  verification remains for ordinary WSL.
+
+Commands and outputs are in `out/exam/task-014/phase-b1-sdk-suite.log`,
+`out/exam/task-014/phase-b1-sdk-suite-regression.log`, and
+`out/exam/task-014/phase-b1-phase-a-1.log` through
+`out/exam/task-014/phase-b1-phase-a-2.log`. Live provider validation,
+credentials, production integration, actual evaluation, and provider-side
+enforcement remain **NOT RUN**. The scoped files and verification evidence
+are packaged in `out/exam/task-014/task-014-sdk-contract-review.zip`.
+
+
+## Raw-response repair scope and results (2026-11-07)
+
+The Phase B1 SDK tests exposed a boundary error: typed SDK response models
+converted JSON booleans and numeric strings before the ledger could check
+original token types. Successful Python argument binding and the earlier
+SDK-independent tests did not detect that conversion.
+
+This repair changes six paths:
+
+- `harness/openai_course_client.py`
+- `tests/test_openai_course_client.py`
+- `tests/test_openai_course_sdk.py`
+- `README.md`
+- `tasks/014-bounded-model-workflow.md`
+- `docs/meetings/2026-11-07-budget-design.md`
+
+The B1 requirement pin and workflow configuration remain unchanged. Combined
+with the existing B1 work, the checkpoint therefore has eight changed/new
+paths. `harness/model_budget.py`, all checkers, frozen source/reference data,
+production runners/prompts/schema, and permission profiles are unchanged.
+
+The adapter requires the SDK's public `with_raw_response` count/create
+methods. It decodes the native HTTP response bytes directly with the standard
+JSON parser, checks the endpoint's JSON object type, and never invokes typed
+SDK response-model parsing for accounting. Boolean, string, and floating-point
+token fields retain their original types and fail the existing exact-integer
+checks. Missing raw interfaces fail before any count/generation request;
+there is no fallback to a converted SDK model.
+
+Invalid JSON, duplicate fields, nonstandard numeric constants, incorrect
+response objects, and malformed usage detail objects stop the run. Count
+failures cannot dispatch generation; generation failures retain their
+reservation. Native responses are closed after reading. Only allowlisted
+request IDs from response headers are used for request provenance. The
+immutable shared request, output cap, reservation order, zero SDK retries,
+and same-ledger accounting remain unchanged.
+
+SDK-independent test doubles now expose raw HTTP responses. The SDK-free
+fresh-checkout check remains intact. The post-settlement fault test injects
+an output-processing failure after known usage has settled, preserving its
+original failure-containment requirement. The real SDK's boolean/string
+regressions remain unchanged; additional native transport cases cover raw
+count types, malformed response JSON, and duplicate fields.
+
+Verification available at this repair checkpoint:
+
+- Against the unchanged adapter, eight SDK-independent raw-boundary tests
+  failed with 24 subtest failures, exit 1. The uploaded real-SDK checkpoint
+  separately preserves its original nine tests and two coercion failures.
+- After repair, **45 adapter tests and 19 ledger tests passed** (64 focused
+  tests, zero skips). All **159 available SDK-independent course/evaluation/
+  budget tests passed**, zero skips. This review copy excludes the existing
+  weather/MCP modules and does not contain the pinned SDK installation.
+- The extended real-SDK suite has **12 tests**; its post-repair execution
+  remains **NOT RUN** until ordinary WSL verification. Complete SDK-plus-MCP
+  repository verification also remains **NOT RUN** at this checkpoint.
+- Exact local results and original B1 evidence are retained in the repair
+  package. No provider/model calls, live token measurements, credentials,
+  source refresh, production integration, staging, commit, push or tag
+  operation was performed in the target repository.
+
+The adapter remains unwired and actual evaluation remains disabled. The next
+verification must run the pinned SDK's in-memory contract suite first. Only
+if it passes should the model dependency be installed in the project test
+environment and the complete SDK-plus-MCP suite run. These local checks do
+not establish provider count agreement, provider enforcement, or model
+quality; those later gates remain pending.
+
+## Completed ordinary-WSL Phase B1 verification checkpoint
+
+The completed ordinary-WSL evidence is preserved in
+`out/exam/task-014/wsl-sdk-raw-4lIzvr/verification.log`, with installed
+package versions in `installed-versions.txt` and preserved-file hashes in
+`preserved-files.sha256`.
+
+- The real-SDK contract suite passed **12 tests**, including the retained
+  boolean/string usage regressions. These tests use synthetic responses via
+  the SDK's in-memory HTTP transport; they are not live provider validation.
+- The ledger suite passed **19 tests** and the SDK-independent adapter suite
+  passed **45 tests**.
+- The complete repository suite passed **208 tests with zero skips**.
+- OpenAI **3.46.0** was installed alongside MCP **2.3.0**; `pip check` passed.
+- Shell syntax, both workflow dry-runs, corpus/reference checks, offline
+  replay, and offline probe/checker passed. Replay evidence is at
+  `out/course-evaluations/run-20261107T182117.009130Z-d18a4d01`.
+- All seven preserved-file checksums matched. Protected-code and exact
+  checkpoint-scope checks passed. Verification exit code: **0**.
+
+This checkpoint records local SDK contract compatibility and synthetic
+transport behavior only. Credentials, live count agreement, provider
+enforcement, production integration, and actual evaluation remain pending.
+Actual evaluation remains disabled. Earlier Phase A and B1 checkpoints above
+remain historical evidence.

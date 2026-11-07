@@ -51,6 +51,7 @@ def make_response(*, status="completed", model=MODEL, usage=_DEFAULT_USAGE, outp
             content=[types.SimpleNamespace(type="output_text", text='{"schema_version":1}')],
         )]
     return types.SimpleNamespace(
+        object="response",
         status=status,
         model=model,
         usage=usage,
@@ -58,6 +59,37 @@ def make_response(*, status="completed", model=MODEL, usage=_DEFAULT_USAGE, outp
         id=response_id,
         _request_id=request_id,
     )
+
+
+def _plain(value):
+    if isinstance(value, types.SimpleNamespace):
+        return {key: _plain(item) for key, item in vars(value).items()}
+    if isinstance(value, dict):
+        return {key: _plain(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_plain(item) for item in value]
+    return value
+
+
+class FakeRawResponse:
+    """SDK-independent raw HTTP response; typed parsing is forbidden."""
+
+    def __init__(self, payload=None, *, content=None, request_id=None):
+        self.closed = False
+        if content is None:
+            content = json.dumps(_plain(payload)).encode("utf-8")
+        self.http_response = types.SimpleNamespace(
+            content=content,
+            status_code=200,
+            headers={"content-type": "application/json", "x-request-id": request_id},
+            close=self.close,
+        )
+
+    def close(self):
+        self.closed = True
+
+    def parse(self):
+        raise AssertionError("budget validation must not parse SDK response models")
 
 
 class FakeResponses:
@@ -72,6 +104,22 @@ class FakeResponses:
         self.count_calls = []
         self.create_calls = []
         self.input_tokens = types.SimpleNamespace(count=self.count)
+        self.input_tokens.with_raw_response = types.SimpleNamespace(count=self.count_raw)
+        self.with_raw_response = types.SimpleNamespace(create=self.create_raw)
+        self.raw_responses = []
+
+    def count_raw(self, **kwargs):
+        response = self.input_tokens.count(**kwargs)
+        raw = FakeRawResponse({"object": "response.input_tokens", "input_tokens": response.input_tokens},
+                              request_id=getattr(response, "_request_id", None))
+        self.raw_responses.append(raw)
+        return raw
+
+    def create_raw(self, **kwargs):
+        response = self.create(**kwargs)
+        raw = FakeRawResponse(response, request_id=getattr(response, "_request_id", None))
+        self.raw_responses.append(raw)
+        return raw
 
     def count(self, **kwargs):
         self.count_calls.append(copy.deepcopy(kwargs))
@@ -262,6 +310,134 @@ class OpenAICourseClientTests(unittest.TestCase):
             self.assertEqual(ledger.state["reservations"], [])
             self.assertEqual(ledger.state["model_calls"], 0)
 
+    def test_raw_count_types_cannot_be_hidden_by_typed_model_coercion(self):
+        for index, value in enumerate((True, "50", 50.0)):
+            with self.subTest(value=value):
+                ledger = self.new_ledger(path=self.evidence / f"raw-count-{index}.json")
+                fake = FakeClient(count_value=value)
+                original = fake.responses.count
+                def typed_count(**kwargs):
+                    result = original(**kwargs)
+                    result.input_tokens = int(result.input_tokens)
+                    return result
+                def raw_count(**kwargs):
+                    result = original(**kwargs)
+                    return FakeRawResponse({"object": "response.input_tokens", "input_tokens": result.input_tokens})
+                fake.responses.input_tokens.count = typed_count
+                fake.responses.input_tokens.with_raw_response.count = raw_count
+                with self.assertRaises(CourseClientError):
+                    self.adapter(fake, ledger).generate(self.source)
+                self.assertEqual(fake.responses.create_calls, [])
+                self.assertEqual(ledger.state["reservations"], [])
+                self.assertTrue(ledger.state["blocked"])
+
+    def test_raw_usage_types_cannot_be_hidden_by_typed_model_coercion(self):
+        cases = (("input_tokens", True), ("input_tokens", "50"),
+                 ("output_tokens", "12"), ("total_tokens", "62"),
+                 ("cached_tokens", True), ("reasoning_tokens", 4.0))
+        for index, (field, value) in enumerate(cases):
+            with self.subTest(field=field, value=value):
+                ledger = self.new_ledger(path=self.evidence / f"raw-usage-{index}.json")
+                raw_body = _plain(make_response())
+                raw_usage = raw_body["usage"]
+                count = 50
+                if field == "cached_tokens":
+                    raw_usage["input_tokens_details"][field] = value
+                elif field == "reasoning_tokens":
+                    raw_usage["output_tokens_details"][field] = value
+                else:
+                    raw_usage[field] = value
+                if field == "input_tokens" and value is True:
+                    count = 1
+                    raw_usage["total_tokens"] = 13
+                    raw_usage["input_tokens_details"]["cached_tokens"] = 0
+                typed = copy.deepcopy(raw_body)
+                for name in ("input_tokens", "output_tokens", "total_tokens"):
+                    typed["usage"][name] = int(typed["usage"][name])
+                typed["usage"]["input_tokens_details"]["cached_tokens"] = int(typed["usage"]["input_tokens_details"]["cached_tokens"])
+                typed["usage"]["output_tokens_details"]["reasoning_tokens"] = int(typed["usage"]["output_tokens_details"]["reasoning_tokens"])
+                fake = FakeClient(count_value=count, response=typed)
+                def raw_create(**kwargs):
+                    fake.responses.create(**kwargs)
+                    return FakeRawResponse(raw_body)
+                fake.responses.with_raw_response.create = raw_create
+                with self.assertRaises(CourseClientError):
+                    self.adapter(fake, ledger).generate(self.source)
+                self.assertTrue(ledger.state["blocked"])
+                self.assertEqual(ledger.state["confirmed_tokens"], 0)
+                self.assertEqual(ledger.pending_tokens, count + TEST_MAX_OUTPUT)
+
+    def test_raw_endpoints_are_required_without_parsed_fallback(self):
+        fake = FakeClient()
+        del fake.responses.with_raw_response
+        del fake.responses.input_tokens.with_raw_response
+        with self.assertRaises(CourseClientError):
+            self.adapter(fake).generate(self.source)
+        self.assertEqual(fake.responses.count_calls, [])
+        self.assertEqual(fake.responses.create_calls, [])
+        self.assertTrue(self.ledger.state["blocked"])
+
+    def test_raw_count_bad_json_shapes_and_duplicates_stop_generation(self):
+        bodies = (b"not JSON", b"[]", b"\xff", b'{"object":"response","input_tokens":50}',
+                  b'{"object":"response.input_tokens","input_tokens":50,"input_tokens":50}',
+                  b'{"object":"response.input_tokens","input_tokens":NaN}')
+        for index, body in enumerate(bodies):
+            with self.subTest(body=body):
+                ledger = self.new_ledger(path=self.evidence / f"raw-json-count-{index}.json")
+                fake = FakeClient()
+                def raw_count(**kwargs):
+                    fake.responses.count(**kwargs)
+                    return FakeRawResponse(content=body)
+                fake.responses.input_tokens.with_raw_response.count = raw_count
+                with self.assertRaises(CourseClientError):
+                    self.adapter(fake, ledger).generate(self.source)
+                self.assertTrue(ledger.state["blocked"])
+                self.assertEqual(fake.responses.create_calls, [])
+
+    def test_raw_generation_bad_json_keeps_the_reservation_and_blocks(self):
+        for index, body in enumerate((b"not JSON", b"[]", b'{"object":"response","object":"response"}')):
+            with self.subTest(body=body):
+                ledger = self.new_ledger(path=self.evidence / f"raw-json-create-{index}.json")
+                fake = FakeClient()
+                def raw_create(**kwargs):
+                    fake.responses.create(**kwargs)
+                    return FakeRawResponse(content=body)
+                fake.responses.with_raw_response.create = raw_create
+                with self.assertRaises(CourseClientError):
+                    self.adapter(fake, ledger).generate(self.source)
+                self.assertTrue(ledger.state["blocked"])
+                self.assertEqual(ledger.pending_tokens, 130)
+                self.assertEqual(ledger.state["confirmed_tokens"], 0)
+
+    def test_raw_responses_are_closed_without_typed_model_parsing(self):
+        fake = FakeClient()
+        self.adapter(fake).generate(self.source)
+        self.assertEqual(len(fake.responses.raw_responses), 2)
+        self.assertTrue(all(raw.closed for raw in fake.responses.raw_responses))
+
+    def test_raw_request_id_comes_from_transport_headers(self):
+        body = _plain(make_response(request_id="sk-" + SYNTHETIC_SECRET))
+        fake = FakeClient(response=body)
+        def raw_create(**kwargs):
+            fake.responses.create(**kwargs)
+            return FakeRawResponse(body, request_id="req_transport_only")
+        fake.responses.with_raw_response.create = raw_create
+        result = self.adapter(fake).generate(self.source)
+        self.assertEqual(result.request_id, "req_transport_only")
+        self.assertNotIn(SYNTHETIC_SECRET, self.ledger_path.read_text())
+
+    def test_raw_usage_detail_containers_fail_closed(self):
+        for index, value in enumerate(([], "not an object", True)):
+            with self.subTest(value=value):
+                body = _plain(make_response())
+                body["usage"]["input_tokens_details"] = value
+                ledger = self.new_ledger(path=self.evidence / f"raw-detail-{index}.json")
+                with self.assertRaises(CourseClientError):
+                    self.adapter(FakeClient(response=body), ledger).generate(self.source)
+                self.assertTrue(ledger.state["blocked"])
+                self.assertEqual(ledger.pending_tokens, 130)
+                self.assertEqual(ledger.state["confirmed_tokens"], 0)
+
     def test_count_error_with_synthetic_secret_is_not_returned_or_logged(self):
         fake = FakeClient(count_error=RuntimeError(f"provider diagnostic {SYNTHETIC_SECRET}"))
         with self.assertRaises(CourseClientError) as caught:
@@ -353,18 +529,15 @@ class OpenAICourseClientTests(unittest.TestCase):
         self.assertEqual(self.ledger.pending_tokens, 0)
         self.assertEqual(self.ledger.state["model_calls"], 0)
 
-    def test_output_accessor_failure_after_settlement_blocks_with_usage_preserved(self):
+    def test_output_processing_failure_after_settlement_blocks_with_usage_preserved(self):
         for index, failure in enumerate((RuntimeError(SYNTHETIC_SECRET), KeyboardInterrupt())):
-            class BrokenOutput:
-                @property
-                def type(self):
-                    raise failure
             ledger = self.new_ledger(path=self.evidence / f"post-settle-{index}.json")
-            fake = FakeClient(response=make_response(output=[BrokenOutput()]))
+            fake = FakeClient()
             adapter = self.adapter(fake, ledger)
             expected = KeyboardInterrupt if isinstance(failure, KeyboardInterrupt) else CourseClientError
             with self.subTest(failure=index), self.assertRaises(expected) as caught:
-                adapter.generate(self.source)
+                with patch("harness.openai_course_client._extract_output", side_effect=failure):
+                    adapter.generate(self.source)
             self.assertNotIn(SYNTHETIC_SECRET, str(caught.exception))
             self.assertTrue(ledger.state["blocked"])
             self.assertEqual(ledger.state["confirmed_tokens"], 62)
@@ -644,14 +817,21 @@ sys.meta_path.insert(0, NoSDK())
 from harness.model_budget import TokenLedger
 from harness.openai_course_client import OpenAICourseClient
 source = json.loads(pathlib.Path("fixtures/courses/course-sources.json").read_text(encoding="utf-8"))
+class Raw:
+    def __init__(self, payload):
+        self.http_response = types.SimpleNamespace(content=json.dumps(payload).encode("utf-8"),
+            status_code=200, headers={"content-type":"application/json"}, close=lambda: None)
 class Responses:
-    def __init__(self): self.input_tokens = types.SimpleNamespace(count=lambda **kw: types.SimpleNamespace(input_tokens=40))
+    def __init__(self):
+        self.input_tokens = types.SimpleNamespace(with_raw_response=types.SimpleNamespace(
+            count=lambda **kw: Raw({"object":"response.input_tokens","input_tokens":40})))
+        self.with_raw_response = types.SimpleNamespace(create=self.create)
     def create(self, **kw):
         assert kw["max_output_tokens"] == 30 and kw["store"] is False and kw["stream"] is False
-        return types.SimpleNamespace(status="completed", model="gpt-6-luna", id="resp_fresh", _request_id="req_fresh",
-            usage=types.SimpleNamespace(input_tokens=40, output_tokens=5, total_tokens=45),
-            output=[types.SimpleNamespace(type="message", role="assistant", status="completed",
-                content=[types.SimpleNamespace(type="output_text", text="{}")])])
+        return Raw({"object":"response","status":"completed","model":"gpt-6-luna","id":"resp_fresh",
+            "usage":{"input_tokens":40,"output_tokens":5,"total_tokens":45},
+            "output":[{"type":"message","role":"assistant","status":"completed",
+                "content":[{"type":"output_text","text":"{}"}]}]})
 class Client:
     max_retries = 0
     timeout = 30

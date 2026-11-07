@@ -312,11 +312,37 @@ uses all probe items. Run the complete test suite from a normal WSL shell with:
 .venv/bin/python -m unittest discover -s tests
 ```
 
+## Pinned SDK contract tests for Task 014
+
+`requirements-model.txt` pins `openai==3.46.0` for the offline contract
+suite. Install both repository test dependencies and run the SDK contract and
+Phase A budget suites with:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-mcp.txt -r requirements-model.txt
+.venv/bin/python -c 'from importlib.metadata import version; import httpx2; from openai import OpenAI; from openai.resources.responses import Responses; from openai.resources.responses.input_tokens import InputTokens; from openai.types.responses import InputTokenCountResponse, Response; assert version("openai") == "3.46.0"; assert callable(httpx2.MockTransport)'
+.venv/bin/python -m unittest discover -s tests -p 'test_openai_course_sdk.py'
+.venv/bin/python -m unittest discover -s tests -p 'test_model_budget.py'
+.venv/bin/python -m unittest discover -s tests -p 'test_openai_course_client.py'
+```
+
+The contract suite uses the real SDK methods with HTTPX2's in-memory
+`MockTransport`, a synthetic key, and an explicit `.invalid` origin. It makes
+no provider, network, or model calls. The SDK remains an isolated adapter
+dependency; production and evaluation commands do not use it.
+
+The adapter reads the SDK's raw HTTP JSON responses without response-model
+coercion. Token counts must be JSON integers; boolean, string and float
+representations are rejected. Ambiguous or malformed responses stop
+the run, and uncertain generation usage retains its token reservation.
+
 ## GitHub Actions checks
 
 The `checks` workflow runs on pull requests and pushes to `main`. Its single
-Ubuntu 24.04 job installs the MCP requirements in `.venv`, confirms that the
-MCP SDK imports, and runs these checks:
+Ubuntu 24.04 job installs the MCP and model SDK requirements in `.venv`,
+confirms both SDK imports and the pinned OpenAI version, and runs these
+checks:
 
 - `bash -n harness/run.sh`
 - `./harness/run.sh --offline --dry-run`
@@ -331,8 +357,9 @@ Reproduce the CI checks locally from the repository root with:
 
 ```sh
 python -m venv .venv
-.venv/bin/python -m pip install -r requirements-mcp.txt
+.venv/bin/python -m pip install -r requirements-mcp.txt -r requirements-model.txt
 .venv/bin/python -c 'import mcp'
+.venv/bin/python -c 'from importlib.metadata import version; import httpx2; from openai import OpenAI; from openai.resources.responses import Responses; from openai.resources.responses.input_tokens import InputTokens; from openai.types.responses import InputTokenCountResponse, Response; assert version("openai") == "3.46.0"; assert callable(httpx2.MockTransport)'
 bash -n harness/run.sh
 ./harness/run.sh --offline --dry-run
 ./harness/run.sh --dry-run

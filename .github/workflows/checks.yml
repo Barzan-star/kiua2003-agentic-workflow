@@ -28,11 +28,14 @@ jobs:
       - name: Create virtual environment
         run: python -m venv .venv
 
-      - name: Install MCP requirements
-        run: .venv/bin/python -m pip install -r requirements-mcp.txt
+      - name: Install MCP and model SDK requirements
+        run: .venv/bin/python -m pip install -r requirements-mcp.txt -r requirements-model.txt
 
       - name: Verify MCP SDK import
         run: .venv/bin/python -c 'from mcp import Client; from mcp.server.mcpserver import MCPServer'
+
+      - name: Verify pinned OpenAI SDK contract imports
+        run: .venv/bin/python -c 'from importlib.metadata import version; import httpx2; from openai import OpenAI; from openai.resources.responses import Responses; from openai.resources.responses.input_tokens import InputTokens; from openai.types.responses import InputTokenCountResponse, Response; assert version("openai") == "3.46.0"; assert callable(httpx2.MockTransport)'
 
       - name: Check runner shell syntax
         run: bash -n harness/run.sh

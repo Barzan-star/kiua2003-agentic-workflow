@@ -141,3 +141,123 @@ unwired, and actual evaluation remains disabled. SDK installation, live
 requests, provider count agreement, and provider enforcement remain
 **NOT TESTED**. The initial offline checkpoint and failure-containment repair
 record above are historical checkpoints, retained as such.
+
+## Phase B1 real SDK contract inspection
+
+Before the B1 tests were implemented, the saved successful inspection at
+`out/exam/task-014/sdk-probe-20261107T164912Z-yu0ibwdn/sdk-interface.json` was
+read and the installed interfaces were rechecked with its Python executable:
+`out/exam/task-014/sdk-probe-20261107T164912Z-yu0ibwdn/venv/bin/python`.
+That environment reports Python 3.12.3, `openai==3.46.0`, and `httpx2==2.16.0`.
+
+- `OpenAI` accepts explicit `api_key`, `base_url`, `timeout`, `max_retries`,
+  and `http_client` constructor arguments.
+- `Responses.input_tokens.count` accepts model, input, instructions,
+  reasoning, and structured text-format configuration.
+- `Responses.create` accepts those same input-affecting arguments and the
+  explicit output cap, service tier, storage, stream, and background options.
+- Native `httpx2.MockTransport(handler)` is available. The tests configure
+  the SDK with `max_retries=0` and a finite timeout, following the official
+  [Python library guidance](https://developers.openai.com/api/reference/python)
+  for Responses requests, HTTP client transports, retries, and timeouts.
+
+The saved inspection reports matching full count/create argument binding and
+zero attempted socket operations. This establishes local SDK interface
+compatibility only. No API requests, provider validation, endpoint count, or
+model generation occurred during inspection; those checks remain pending.
+
+## Historical Phase B1 offline contract-test results before repair
+
+`requirements-model.txt` pins `openai==3.46.0`. The SDK test suite constructs
+the real synchronous SDK with the synthetic key `sk-test-offline-contract-only`,
+`https://responses-contract.invalid/v1`, zero retries, and a native HTTPX2
+`MockTransport`. The handler records only request methods, `.invalid` origins,
+paths, and synthetic JSON bodies. It never retains request headers or a
+client representation.
+
+The contract suite ran 9 tests and exposed two existing usage-validation
+regressions. The real SDK's response model converts JSON `true` to integer 1
+and numeric string `"50"` to integer 50 before the adapter checks usage types;
+both malformed reports are consequently accepted and settled. At that checkpoint the
+regressions were intentionally retained as failures; neither adapter nor
+ledger code was changed. The exact initial and confirming outputs are in
+`out/exam/task-014/phase-b1-sdk-suite.log` and
+`out/exam/task-014/phase-b1-sdk-suite-regression.log`.
+
+With the isolated SDK Python, the Phase A ledger suite passed 19 tests and
+the SDK-independent adapter suite passed 37 tests. Their exact commands and
+outputs are in `out/exam/task-014/phase-b1-phase-a-1.log` and
+`out/exam/task-014/phase-b1-phase-a-2.log`. Existing Phase A tests and
+production implementation are unchanged. These offline contract results do
+not establish provider count agreement, provider enforcement, successful
+provider responses, or evaluation quality. Live validation, credentials,
+production integration, and actual evaluation remain pending.
+
+The six scoped files and offline verification evidence are packaged in
+`out/exam/task-014/task-014-sdk-contract-review.zip`. The bundle omits the SDK
+virtual environment and package downloads.
+
+
+## Raw-response boundary repair
+
+The native SDK regression showed why post-model type checks are insufficient:
+the response parser had already changed JSON `true` and `"50"` into integers.
+The ledger's integer validation was correct, but it was receiving converted
+values. The adapter now requests the SDK's public raw response and decodes
+its original HTTP JSON bytes instead of invoking response-model parsing.
+The raw interface is documented in the
+[OpenAI Python library reference](https://developers.openai.com/api/reference/python).
+
+Both count and generation responses must expose raw bytes and the expected
+JSON object discriminator. Duplicate JSON fields and nonstandard numeric
+constants are rejected. Raw booleans, strings, and floats stay unchanged
+until exact-type validation. There is no parsed-response fallback. Request
+IDs come from allowlisted response headers; the native response is closed
+without exposing headers or body text in diagnostics.
+
+The existing output cap, count/create input identity, durable reservation,
+zero retries, settlement rules and abandonment policy remain in force. The
+ledger implementation is unchanged. Invalid usage detail containers also
+block the run; post-settlement processing errors retain confirmed usage and
+stop further requests. Unit doubles were updated to represent raw responses,
+while the SDK-independent fresh-checkout and original containment assertions
+remain. No source/checker/evaluation/production-runner changes are included.
+
+Eight raw-boundary regression tests against the old adapter failed with 24
+subtest failures. After repair the adapter suite passed **45 tests** and the
+ledger suite passed **19 tests**. All **159 available SDK-independent component
+tests passed with zero skips**. The review copy has no installed OpenAI SDK
+and excludes existing weather/MCP modules; the extended **12-test real-SDK
+suite and complete repository verification still require ordinary WSL**.
+The original real-SDK nine-test/two-failure evidence remains preserved.
+
+The requirement pin and CI configuration from B1 are unchanged. The repair
+adds the adapter and its SDK-independent tests to that checkpoint's scope,
+for eight changed/new paths overall. Real provider access, count agreement,
+provider enforcement, invocation-wide integration and model evaluation remain
+pending. No target-repository staging, commit or publication was performed.
+
+## Completed ordinary-WSL Phase B1 verification checkpoint
+
+Evidence is preserved in
+`out/exam/task-014/wsl-sdk-raw-4lIzvr/verification.log`,
+`preserved-files.sha256`, and `installed-versions.txt`.
+
+- The real OpenAI SDK contract suite passed **12 tests**, including the
+  retained boolean/string usage regressions. It exercised the real pinned SDK
+  against synthetic responses from an in-memory HTTP transport; this is not
+  live provider validation.
+- The ledger suite passed **19 tests**, the SDK-independent adapter suite
+  passed **45 tests**, and the complete repository suite passed **208 tests
+  with zero skips**.
+- OpenAI **3.46.0** was installed alongside MCP **2.3.0** and `pip check`
+  passed. Shell syntax, both dry-runs, corpus/reference checks, offline replay,
+  and offline probe/checker all passed.
+- Replay evidence: `out/course-evaluations/run-20261107T182117.009130Z-d18a4d01`.
+  All seven preserved-file checksums matched, protected-code and exact
+  checkpoint-scope checks passed, and verification exited **0**.
+
+Credentials, live count agreement, provider enforcement, production
+integration, and actual evaluation remain pending. Actual evaluation remains
+disabled. This is a local SDK contract checkpoint, not evidence of provider
+behavior; all earlier checkpoints remain preserved as historical records.
