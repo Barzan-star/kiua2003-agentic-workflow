@@ -50,6 +50,20 @@ attempt; model, timeout, missing-output, and checker infrastructure failures
 stop immediately. Offline means source collection uses the fixture; it does
 not mean model extraction runs offline.
 
+For non-null dates, the checker also verifies the requested role from the
+cited source section. It reads explicit labelled field/value dates and maps
+dates in the fixture's flattened table using the order of its date headers.
+Date-only quotations are accepted when their cited section gives one
+unambiguous role/value; unsupported and ambiguous role assignments are
+rejected with a course and field message. This is a structural check of
+explicit labels and headers, not a general semantic review of source meaning.
+The date-bearing quotation and role context must belong to the same evidence
+item. All date-bearing citations must agree; a clear citation cannot mask an
+ambiguous one. Labelled values must be explicit date cells, rather than dates
+found later in unrelated prose. Every row of the supported flattened table is
+examined: differing values without an offering selector are ambiguous, and
+unrecognised rows are rejected instead of silently selecting the first row.
+
 The original read-only source snapshot is retained unchanged. An additional
 `agent-source-view.json` annotates those same sections with their zero-based
 indices. Each retry receives the preceding rejected JSON and complete checker

@@ -31,8 +31,16 @@ interviews or validation of employer demand have not been performed.
   verbatim evidence for each extracted fact.
 - A standard-library checker enforces types, valid dates and fees, exactly the
   approved course set, same-course source membership, normalized date and fee
-  agreement, and evidence/value support. Unknown fields stay unknown; a
-  deadline does not imply open applications.
+  agreement, and evidence/value support. For non-null dates it also verifies
+  that cited source context supports the requested application-deadline or
+  start-date role, using explicit field/value labels or flattened-table date
+  headers. Unsupported or ambiguous role assignments are rejected with the
+  course and field identified. Unknown fields stay unknown; a deadline does
+  not imply open applications.
+- Keep each date-bearing quotation paired with its own cited context. Require
+  consistent role support across date-bearing citations, inspect all rows in
+  a supported flattened table, and reject unsupported labelled values or
+  table rows rather than guessing a role or selecting an offering implicitly.
 - Codex extraction uses a fresh candidate each time and runs at most three
   times. Only checker content rejection is retried with the exact feedback
   and the preceding rejected JSON. The agent sees explicit section indices;
@@ -56,11 +64,13 @@ defines the candidate shape; `eval/check_courses.py` checks fields and
 quotations against the immutable run input; `harness/render_courses.py`
 creates the deterministic local outputs.
 
-Quotation membership and normalization are mechanical evidence checks, not a
-semantic proof. They cannot establish that a model included every prerequisite
-or retained every important qualification. Human review of source context and
-the retained snapshot remains necessary for semantic completeness. Offline
-collection does not make the Codex generation stage offline.
+Quotation membership, normalization, and date-role checks are mechanical
+evidence checks, not a complete semantic proof. Explicit labels and table
+headers support the date-role decision, but the checker cannot establish that
+a model included every prerequisite or retained every important
+qualification. Human review of source context and the retained snapshot
+remains necessary for semantic completeness. Offline collection does not make
+the Codex generation stage offline.
 
 ## Verification
 

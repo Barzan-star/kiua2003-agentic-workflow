@@ -22,6 +22,38 @@ TEXT_DATE = re.compile(r"\b(\d{1,2})\.?\s+([A-Za-zæøåÆØÅ]+)\s+(\d{4})\b", 
 NUM_DATE = re.compile(r"\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b")
 ISO_DATE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 WHITESPACE = re.compile(r"\s+")
+DATE_ROLE_LABEL = re.compile(
+    r"(?<!\w)(Søknadsfrist|application\s+deadline|application_deadline|"
+    r"Oppstartsdato|start\s+date|start_date)(?!\w)",
+    re.I,
+)
+TABLE_OTHER_COLUMN = re.compile(
+    r"(?<!\w)(Gjennomføringsmodell|Studiested|Lokasjon|Kode|Studieavgift|Lenker|Favoriser)(?!\w)",
+    re.I,
+)
+
+
+def _date_matches(text):
+    """Return valid ISO dates in source order, retaining duplicate values."""
+    found = []
+    for match in TEXT_DATE.finditer(text):
+        month = MONTHS.get(match.group(2).casefold())
+        if month:
+            try:
+                found.append((match.start(), date(int(match.group(3)), month, int(match.group(1))).isoformat()))
+            except ValueError:
+                pass
+    for match in NUM_DATE.finditer(text):
+        try:
+            found.append((match.start(), date(int(match.group(3)), int(match.group(2)), int(match.group(1))).isoformat()))
+        except ValueError:
+            pass
+    for match in ISO_DATE.finditer(text):
+        try:
+            found.append((match.start(), date.fromisoformat(match.group(1)).isoformat()))
+        except ValueError:
+            pass
+    return [value for _, value in sorted(found)]
 
 
 def _norm(text):
@@ -30,25 +62,108 @@ def _norm(text):
 
 
 def _dates(text):
-    found = set()
-    for match in TEXT_DATE.finditer(text):
-        month = MONTHS.get(match.group(2).casefold())
-        if month:
-            try:
-                found.add(date(int(match.group(3)), month, int(match.group(1))).isoformat())
-            except ValueError:
-                pass
-    for match in NUM_DATE.finditer(text):
-        try:
-            found.add(date(int(match.group(3)), int(match.group(2)), int(match.group(1))).isoformat())
-        except ValueError:
-            pass
-    for match in ISO_DATE.finditer(text):
-        try:
-            found.add(date.fromisoformat(match.group(1)).isoformat())
-        except ValueError:
-            pass
-    return found
+    return set(_date_matches(text))
+
+
+def _label_role(label):
+    folded = label.casefold().replace("_", " ")
+    if "søknadsfrist" in folded or "application" in folded:
+        return "application_deadline"
+    return "start_date"
+
+
+def _date_cell(text):
+    """Read an explicit date value, without scanning through unrelated prose."""
+    value = re.sub(r"^\s*(?::|-)\s*", "", text.strip()).rstrip(" \t.;")
+    if any(pattern.fullmatch(value) for pattern in (TEXT_DATE, NUM_DATE, ISO_DATE)):
+        return _date_matches(value)
+    return []
+
+
+def _table_header_roles(line):
+    """Recognise the supported flattened columns, rather than prose mentions."""
+    labels = list(DATE_ROLE_LABEL.finditer(line))
+    roles = [_label_role(match.group(0)) for match in labels]
+    if len(roles) != 2 or set(roles) != {"application_deadline", "start_date"}:
+        return None
+    if _date_matches(line):
+        return None
+    remaining = TABLE_OTHER_COLUMN.sub("", DATE_ROLE_LABEL.sub("", line))
+    if remaining.strip(" \t|,;:-"):
+        return None
+    return roles
+
+
+def _date_roles(text):
+    """Return explicit role values and roles with an unsupported value layout."""
+    roles = {"application_deadline": set(), "start_date": set()}
+    unsupported = set()
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        header_roles = _table_header_roles(line)
+        if header_roles is not None:
+            # Inspect all rows in this block; selecting the first row would hide
+            # different dates for other offerings without an offering selector.
+            row_seen = False
+            for row in lines[index + 1:]:
+                if not row.strip():
+                    continue
+                if DATE_ROLE_LABEL.search(row):
+                    unsupported.update(header_roles)
+                    break
+                row_seen = True
+                values = _date_matches(row)
+                if len(values) != len(header_roles):
+                    unsupported.update(header_roles)
+                    continue
+                for role, value in zip(header_roles, values):
+                    roles[role].add(value)
+            if not row_seen:
+                unsupported.update(header_roles)
+            continue
+
+        labels = list(DATE_ROLE_LABEL.finditer(line))
+        if not labels or line[:labels[0].start()].strip(" \t|;-"):
+            continue
+        for label_index, match in enumerate(labels):
+            role = _label_role(match.group(0))
+            end = labels[label_index + 1].start() if label_index + 1 < len(labels) else len(line)
+            fragment = line[match.end():end]
+            values = _date_cell(fragment)
+            if not fragment.strip(" \t:-") and len(labels) == 1:
+                # A standalone label may precede one or more date-only lines.
+                # Distinct values remain visible so the caller can reject them.
+                for next_line in lines[index + 1:]:
+                    if not next_line.strip():
+                        continue
+                    if DATE_ROLE_LABEL.search(next_line):
+                        break
+                    following = _date_cell(next_line)
+                    if not following:
+                        break
+                    values.extend(following)
+            if values:
+                roles[role].update(values)
+            else:
+                unsupported.add(role)
+    return roles, unsupported
+
+
+def _role_support(field, value, evidence):
+    """Keep each date-bearing quotation paired with its own source context."""
+    supported = True
+    date_seen = False
+    ambiguous = False
+    for quotation, context in evidence:
+        if value not in _dates(quotation):
+            continue
+        date_seen = True
+        roles, unsupported = _date_roles(context)
+        values = roles[field]
+        ambiguous = ambiguous or len(values) > 1
+        if field in unsupported or values != {value}:
+            supported = False
+    return date_seen and supported and not ambiguous, ambiguous
 
 
 def _load(path, kind):
@@ -114,11 +229,12 @@ def validate(snapshot, candidate):
         if not isinstance(sections, list):
             return [f"source snapshot sections are malformed for {cid}"]
 
-        def evidence_quotes(evidence, label, required):
+        def evidence_quotes(evidence, label, required, include_contexts=False):
             if not isinstance(evidence, list) or (required and not evidence) or (not required and evidence):
                 errors.append(f"{prefix}: {label} evidence must {'be present' if required else 'be empty'}")
-                return ""
+                return ("", []) if include_contexts else ""
             quotes = []
+            contexts = []
             for item in evidence:
                 if not isinstance(item, dict) or type(item.get("section_index")) is not int or not isinstance(item.get("quote"), str) or not item["quote"].strip():
                     errors.append(f"{prefix}: malformed {label} evidence")
@@ -132,7 +248,9 @@ def validate(snapshot, candidate):
                     errors.append(f"{prefix}: {label} quotation is not verbatim in its cited section")
                     continue
                 quotes.append(item["quote"])
-            return "\n".join(quotes)
+                contexts.append((item["quote"], section["text"]))
+            result = "\n".join(quotes)
+            return (result, contexts) if include_contexts else result
 
         for key in ("application_deadline", "start_date"):
             field = rec.get(key)
@@ -141,7 +259,7 @@ def validate(snapshot, candidate):
                 continue
             value = field["date"]
             required = value is not None
-            quote = evidence_quotes(field["evidence"], key, required)
+            quote, contexts = evidence_quotes(field["evidence"], key, required, include_contexts=True)
             if required:
                 try:
                     canonical = date.fromisoformat(value).isoformat() if isinstance(value, str) else None
@@ -151,8 +269,13 @@ def validate(snapshot, candidate):
                     errors.append(f"{prefix}: {key} must be a valid ISO date or null")
                 elif value not in _dates(quote):
                     errors.append(f"{prefix}: {key} does not match a date in its quoted source")
-                if key == "start_date" and value in _dates(quote):
-                    pass
+                elif value in _dates(quote):
+                    supported, ambiguous = _role_support(key, value, contexts)
+                    if not supported:
+                        if ambiguous:
+                            errors.append(f"{prefix}: {key} role is ambiguous in cited source context")
+                        else:
+                            errors.append(f"{prefix}: {key} role is not supported by cited source context")
             if not required and key not in missing_fields:
                 errors.append(f"{prefix}: missing {key} must be listed in missing_or_uncertain_fields")
 
