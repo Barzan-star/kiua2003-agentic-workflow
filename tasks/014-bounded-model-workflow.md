@@ -815,3 +815,24 @@ collection was made during this verification. The measured fixed-set model
 evaluation, qualitative review, and live normal-workflow demonstration remain
 pending. Phase C2 has not yet run in GitHub Actions. Earlier Phase A, B1, and
 C2 checkpoints above remain historical records of their own results.
+
+## First measured fixed-set course evaluation — 2026-11-08
+
+The predeclared provider evaluation completed with intact evidence on the
+frozen nine-case set. Seven approved cases were independently scored, including
+both final candidates rejected by the workflow; two unapproved sources were
+rejected before count or generation. First-attempt acceptance was 4/7 and
+final workflow acceptance was 5/7. Scores were 144 correct, zero missing, and
+three incorrect of 147 declared values; required-text and prerequisite phrase
+coverage was 119/119 and 77/77. These are fixed-set measurements, not estimates
+of accuracy on unseen courses. Detailed findings and retained evidence are in
+`docs/meetings/2026-11-08-measured-course-evaluation.md`.
+
+This is a documentation checkpoint only. It did not rerun tests, collection,
+or model calls. Keep this run as the baseline and keep references frozen.
+Future implementation work may attach trusted source metadata and derive
+internally consistent missing-field flags in Python while the model extracts
+evidence-grounded facts. Ambiguous-offering dates still require abstention;
+any improvement is a separately declared trial. Student confirmation, the
+live normal-workflow demonstration, complete stress study, and final exam
+delivery remain pending.

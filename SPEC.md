@@ -147,6 +147,18 @@ The actual interface has only been exercised with injected SDK doubles in
 Phase C2. Such reports use `execution_kind=injected_test` and
 `not_model_accuracy=true`; they do not claim provider-generated answers.
 
+The first fixed-set provider measurement completed on 2026-11-08 using the
+predeclared limits and frozen sources. All seven approved cases were scored:
+144/147 declared value slots were correct, required-text coverage was 119/119,
+and prerequisite coverage was 77/77. Workflow acceptance was 5/7 after retries;
+the two rejected final candidates remain included in scoring. These counts
+describe this fixed set only and do not estimate performance on unseen courses.
+The source-grounded case analysis, operational accounting, and coverage limits
+are recorded in
+`docs/meetings/2026-11-08-measured-course-evaluation.md`. The evaluation does
+not complete the exam; student qualitative confirmation, the live normal
+workflow, stress study, and final delivery remain pending.
+
 At the initial Phase B checkpoint, the corpus check passed all nine source
 cases, the focused suite passed 15 tests with no skips, and replay reported a
 pass in

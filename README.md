@@ -213,6 +213,18 @@ and the local checker/renderer. Their evidence is labelled
 `execution_kind=injected_test` and `not_model_accuracy=true`; no provider
 model evaluation was performed in this phase.
 
+### First measured fixed-set evaluation — 8 November 2026
+
+The first predeclared provider trial completed against seven approved source
+cases and two expected preflight rejections using frozen historical snapshots.
+All seven approved cases were scored (144/147 declared values correct); first
+attempt acceptance was 4/7 and final workflow acceptance was 5/7. This is one
+fixed-set measurement, not an estimate of accuracy on unseen courses. See the
+[measured evaluation record](docs/meetings/2026-11-08-measured-course-evaluation.md)
+for case outcomes, token accounting, failures, limitations, and retained
+evidence. Qualitative student confirmation, the live normal-workflow
+demonstration, stress study, and final exam delivery remain pending.
+
 Actual evaluation verifies each completed case's candidate, checker, renderer
 and result receipts before moving to the next case. Missing or changed
 evidence stops the batch. A pass-through audit of the single native SDK
