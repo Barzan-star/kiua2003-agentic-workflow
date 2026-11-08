@@ -12,6 +12,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from eval import check_courses
 from harness import course_evaluation_cases as corpus
 from harness import course_evaluation_scoring as scoring
 from harness import course_workflow
@@ -177,6 +178,26 @@ class ActualScoringModeTests(unittest.TestCase):
             scoring.aggregate_scores([actual], evaluation_mode="actual")["candidate_count"], 1,
         )
 
+    def test_rejected_missing_flag_contradiction_remains_independently_scoreable(self):
+        candidate = copy.deepcopy(self.candidate)
+        robot = next(c for c in candidate["courses"] if c["course_id"] == "automation-robot-regulation")
+        robot["missing_or_uncertain_fields"].append("delivery_format")
+        source = json.loads(self.generated["S00-base"]["bytes"].decode("utf-8"))
+        self.assertTrue(any(
+            "automation-robot-regulation: delivery_format" in error
+            for error in check_courses.validate(source, candidate)
+        ))
+        retained = copy.deepcopy(candidate)
+        score = scoring.score_candidate(
+            candidate, self.reference, "S00-base", provenance="current_model",
+            evaluation_mode="actual",
+        )
+        delivery = next(row for row in score["value_results"] if row["fact_id"] == "robot-delivery-format")
+        self.assertEqual(delivery["state"], "incorrect")
+        self.assertEqual(delivery["reason_kind"], "contract")
+        self.assertEqual(score["value_slot_counts"], {"correct": 20, "missing": 0, "incorrect": 1})
+        self.assertEqual(candidate, retained)
+
 
 class ActualCourseEvaluationTests(unittest.TestCase):
     @classmethod
@@ -281,11 +302,14 @@ class ActualCourseEvaluationTests(unittest.TestCase):
             candidate, base, reference, catalog, "C05-omit-admissions-alternative",
         )
         robot = next(item for item in candidate["courses"] if item["course_id"] == "automation-robot-regulation")
-        robot["missing_or_uncertain_fields"].append("delivery_format")
+        # A verbatim fragment omits the physical part of the hybrid delivery.
+        # Membership checking accepts it; the independent reference does not.
+        robot["delivery_format"]["value"] = "nettbaserte samlinger"
         intro = next(item for item in candidate["courses"] if item["course_id"] == "automation-introduction")
         intro["application_deadline"] = {"date": None, "evidence": []}
         if "application_deadline" not in intro["missing_or_uncertain_fields"]:
             intro["missing_or_uncertain_fields"].append("application_deadline")
+        self.assertEqual(check_courses.validate(base, candidate), [])
         outputs[0] = json.dumps(candidate, ensure_ascii=False)
         sdk = InjectedSDK(outputs)
         run_id, run_dir, summary, exit_code, _factory_calls = self.run_injected(sdk)
@@ -616,7 +640,9 @@ class ActualCourseEvaluationTests(unittest.TestCase):
     def test_markdown_reports_factual_quality_not_only_scoring_coverage(self):
         candidate = json.loads(self.outputs[0])
         robot = next(c for c in candidate["courses"] if c["course_id"] == "automation-robot-regulation")
-        robot["missing_or_uncertain_fields"].append("delivery_format")
+        robot["delivery_format"]["value"] = "nettbaserte samlinger"
+        source = json.loads(self.generated["S00-base"]["bytes"].decode("utf-8"))
+        self.assertEqual(check_courses.validate(source, candidate), [])
         outputs = [json.dumps(candidate, ensure_ascii=False), *self.outputs[1:]]
         _run_id, run_dir, summary, exit_code, _factory = self.run_injected(InjectedSDK(outputs))
         self.assertEqual(exit_code, 0)

@@ -31,6 +31,19 @@ TABLE_OTHER_COLUMN = re.compile(
     r"(?<!\w)(Gjennomføringsmodell|Studiested|Lokasjon|Kode|Studieavgift|Lenker|Favoriser)(?!\w)",
     re.I,
 )
+MISSING_FIELD_NAMES = {
+    "application_deadline", "start_date", "planned_period", "prerequisites",
+    "delivery_format", "study_fee_nok", "materials_qualification",
+    "application_status",
+}
+
+
+def _check_missing_flag(errors, prefix, field, missing_fields, supplied):
+    """Enforce the mechanical missing-marker contract, not semantic completeness."""
+    if supplied and field in missing_fields:
+        errors.append(f"{prefix}: {field} is marked missing despite a supplied value")
+    elif not supplied and field not in missing_fields:
+        errors.append(f"{prefix}: missing {field} must be listed in missing_or_uncertain_fields")
 
 
 def _date_matches(text):
@@ -213,6 +226,9 @@ def validate(snapshot, candidate):
             missing_fields = []
         else:
             missing_fields = raw_missing
+        for field in missing_fields:
+            if field not in MISSING_FIELD_NAMES:
+                errors.append(f"{cid}: unsupported missing_or_uncertain_fields entry: {field}")
         if not isinstance(cid, str):
             continue
         src = source_by_id.get(cid)
@@ -276,8 +292,7 @@ def validate(snapshot, candidate):
                             errors.append(f"{prefix}: {key} role is ambiguous in cited source context")
                         else:
                             errors.append(f"{prefix}: {key} role is not supported by cited source context")
-            if not required and key not in missing_fields:
-                errors.append(f"{prefix}: missing {key} must be listed in missing_or_uncertain_fields")
+            _check_missing_flag(errors, prefix, key, missing_fields, required)
 
         for key in ("planned_period", "delivery_format", "materials_qualification"):
             field = rec.get(key)
@@ -288,8 +303,7 @@ def validate(snapshot, candidate):
             quote = evidence_quotes(field["evidence"], key, value is not None)
             if value is not None and (not isinstance(value, str) or not value.strip() or _norm(value) not in _norm(quote)):
                 errors.append(f"{prefix}: {key} value is not supported by its quotation")
-            if value is None and key not in missing_fields:
-                errors.append(f"{prefix}: missing {key} must be listed in missing_or_uncertain_fields")
+            _check_missing_flag(errors, prefix, key, missing_fields, value is not None)
 
         prereqs = rec.get("prerequisites")
         if not isinstance(prereqs, list):
@@ -302,8 +316,7 @@ def validate(snapshot, candidate):
                 quote = evidence_quotes(item["evidence"], f"prerequisite {index}", True)
                 if _norm(item["text"]) not in _norm(quote):
                     errors.append(f"{prefix}: prerequisite {index} text is not supported verbatim")
-        if not prereqs and "prerequisites" not in missing_fields:
-            errors.append(f"{prefix}: empty prerequisites must be marked missing or uncertain")
+        _check_missing_flag(errors, prefix, "prerequisites", missing_fields, bool(prereqs))
 
         fee = rec.get("study_fee_nok")
         if not isinstance(fee, dict) or set(fee) != {"amount", "evidence"}:
@@ -324,8 +337,7 @@ def validate(snapshot, candidate):
                             continue
                     if Decimal(str(amount)) not in amounts:
                         errors.append(f"{prefix}: study fee amount does not match a quoted NOK amount")
-            elif "study_fee_nok" not in missing_fields:
-                errors.append(f"{prefix}: missing study_fee_nok must be listed in missing_or_uncertain_fields")
+            _check_missing_flag(errors, prefix, "study_fee_nok", missing_fields, amount is not None)
 
         status = rec.get("application_status")
         allowed_statuses = {"not_stated", "no_current_openings", "open_for_application", "uncertain"}
@@ -339,8 +351,10 @@ def validate(snapshot, candidate):
                 errors.append(f"{prefix}: no_current_openings requires explicit source wording")
             if state == "open_for_application" and not any(term in lowered for term in ("sok na", "soknadsperioden er apen", "apen for soknad")):
                 errors.append(f"{prefix}: open_for_application requires explicit source wording")
-            if state in {"not_stated", "uncertain"} and "application_status" not in missing_fields:
-                errors.append(f"{prefix}: unstated or uncertain status must be listed in missing_or_uncertain_fields")
+            _check_missing_flag(
+                errors, prefix, "application_status", missing_fields,
+                state not in {"not_stated", "uncertain"},
+            )
     return errors
 
 
