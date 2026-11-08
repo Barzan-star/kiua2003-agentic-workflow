@@ -677,3 +677,141 @@ historical records of their own verification runs.
 
 Actual evaluation and a live normal-workflow run remain pending. This
 checkpoint does not claim either result.
+
+## Phase C2 actual evaluation interface (scope and implementation record)
+
+Phase C2 changes only these seven paths: `harness/evaluate_courses.py`,
+`harness/course_evaluation_scoring.py`, the new
+`tests/test_actual_course_evaluation.py`, `README.md`, `SPEC.md`, this task
+record, and `docs/meetings/2026-11-08-course-model-evaluation.md`. The shared
+controller, ledger, adapter, frozen inputs, reference, checker, renderer,
+collector, prompt, schema, requirements, CI, permission profiles, W43 material,
+and existing tests remain outside the change set.
+
+### Interface and execution decisions
+
+- Default execution remains offline replay. Replay rejects approval and
+  budget options and does not inspect credentials or construct an SDK client.
+  Actual CLI execution requires `--actual --approve-model-calls` plus explicit
+  positive `--run-token-limit`, `--max-output-tokens`, and
+  `--max-model-calls` values. No live limits are defaults or selected here.
+- The real path checks the runtime-only `OPENAI_API_KEY`, rejects whitespace
+  keys, and verifies the installed SDK against `requirements-model.txt`'s
+  `openai==3.46.0` pin before it creates evidence or a client. It uses the
+  existing lazy SDK factory, finite timeout, zero retries, `gpt-6-luna`, low
+  runtime reasoning, and the existing source-only request builder. Checker,
+  renderer, and replay subprocesses receive environments with the API key
+  removed.
+- Actual mode validates the fixed corpus and reviewed reference, snapshots the
+  generated source cases and transformations, and observes the same strict
+  adapter/C1 source contract for all nine cases before client construction.
+  The two expected preflight rejections make zero count/generation requests.
+  Each of the seven approved inputs runs through
+  `course_workflow.run_course_workflow` in catalog order using one caller-owned
+  ledger, one client, and a new case directory per invocation. Candidate
+  mutations remain replay controls.
+- The scorer's default mode remains replay and keeps its existing provenance
+  classes. Explicit actual mode accepts only `current_model`. It independently
+  scores the last completed candidate, even when the checker rejected it, and
+  never supplies score results to the controller. A candidate retained from
+  an earlier completed attempt is scored and labelled if a later attempt
+  aborts. A dispatched generation without a usable candidate is recorded as
+  unscorable; a case with no generation/candidate is not-scored.
+- Workflow/checker outcomes are recorded beside, but separately from, field
+  scores. The fixed approved set keeps 147 value slots, 119 required-text
+  atoms, and 77 prerequisite atoms in its denominators. Reports distinguish
+  planned, actually scored, unscorable, and not-scored coverage. Exit 0 means
+  all nine case outcomes and required artifacts were finalized with integrity
+  preserved; it does not mean perfect extraction. Qualitative review remains
+  pending.
+- The actual-mode failure boundary blocks the shared ledger before safe
+  failure reporting. Actual receipts use fixed stage/failure codes and
+  allowlisted error categories; provider exception messages, response bodies,
+  headers, client representations, credentials, and environment values are
+  not serialized. Interruption exits 130 and does not assert that provider
+  processing stopped.
+- The programmatic test seam requires an explicit client factory and records
+  `execution_kind=injected_test` and `not_model_accuracy=true`. It is not
+  exposed as a CLI simulation mode. Tests use the real C1 controller, ledger,
+  adapter, checker, and renderer with injected raw responses and blocked Python
+  socket operations.
+
+The actual CLI form is documented in README.md with placeholders for the three
+caller-selected limits. Frozen source input does not make model generation
+offline. The measured evaluation limits will be selected only after request
+review and count planning.
+
+### Initial Phase C2 verification checkpoint
+
+Verification commands and their exact outputs, exit codes, protected-file
+hashes, skeleton-tag check, Git status/diff, and the injected actual report and
+ledger are recorded in the C2 review bundle under
+`out/exam/task-014/task-014-phase-c2-review.zip`. This phase exercised the
+actual interface only with injected clients. No provider call, source
+collection, measured model run, qualitative review, staging, commit, push,
+tagging, or PR change was performed. The review bundle is also copied to the
+Windows Downloads path requested for this task.
+
+The final specified check sequence passed all eight commands with exit code 0:
+the new injected actual-interface suite passed 25 tests, the existing replay
+suite passed 27, and the shared-controller suite passed 20. The corpus check
+validated all nine cases; offline replay, shell syntax, the offline dry-run,
+and `git diff --check` passed. The complete output is in
+`out/exam/task-014/c2-review/verification.log`. No provider-mode CLI, full
+repository suite, separate probe check, or source collection was run. The
+fixed-case replay did run its existing local course checker.
+
+
+### Phase C2 evidence and accounting repair — 2026-11-08
+
+Nine additional regression controls exposed eight failures and one error in
+the initial C2 implementation. A completed count followed by an unaffordable
+reservation was absent from request totals. Missing/changed case artifacts
+could leave a complete report and allow subsequent dispatch. Reporting errors
+could replace the first failure or fail again in the same summary component.
+The Markdown report also omitted independent factual-quality counts.
+
+The repair adds a pass-through audit around the same native SDK client, with
+safe invocation receipts independent of reservations. The existing adapter
+still owns count validation, reservation, generation and settlement. Completed
+case receipts and hashes are verified before continuing; the controller,
+ledger, adapter, checker, frozen inputs and references remain unchanged.
+A failed audit write stops dispatch, including before an endpoint invocation;
+conservative reservations remain if its generation slot was already marked.
+The first failure and later report/close failures are recorded separately.
+An independent minimal failure receipt handles a broken summary component.
+The manifest is written before the atomically replaced final result receipt.
+Both JSON and Markdown show factual quality with explicit denominators.
+
+The injected C2 suite passed 38 tests, including the nine repaired controls
+and four additional audit/finalization cases. These tests exercise application
+behavior with injected SDK responses; they do not measure provider accuracy.
+Full SDK/MCP-enabled ordinary-WSL verification remains pending.
+
+Broader offline verification passed all 249 available SDK-independent tests
+with no skips. The MCP and native OpenAI SDK contract modules were excluded
+from that run because their dependencies are unavailable in the review
+environment. Corpus validation, offline replay, both runner dry-runs, shell
+syntax, the offline probe/checker and whitespace inspection also passed.
+These results remain separate from pending full ordinary-WSL verification.
+
+## Completed ordinary-WSL Phase C2 verification checkpoint (2026-11-08)
+
+The ordinary-WSL verification evidence is preserved in
+`out/exam/task-014/wsl-c2-review-tojpnlz2/`. All **11 recorded commands
+exited 0**. The complete repository suite ran **268 tests with zero skips**.
+All **20 preserved tracked-file hashes matched**. The 70 protected tracked
+files, seven-path change scope, runner mode, and annotated
+`compulsory2-skeleton` tag checks passed. The complete log is
+`verification.log`; command results and before/after hash manifests are in
+`commands.json`, `preserved-files-before.json`, and
+`preserved-files-after.json`.
+
+This checkpoint verifies offline, injected/contract behavior and repository
+integrity. The injected tests use synthetic responses and do not constitute
+provider execution or evidence of model accuracy, provider count agreement,
+or provider-side budget enforcement. No live model request or source
+collection was made during this verification. The measured fixed-set model
+evaluation, qualitative review, and live normal-workflow demonstration remain
+pending. Phase C2 has not yet run in GitHub Actions. Earlier Phase A, B1, and
+C2 checkpoints above remain historical records of their own results.

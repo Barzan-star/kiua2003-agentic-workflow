@@ -168,9 +168,58 @@ child exit code. Failed runs retain partial results, a final error manifest,
 and integrity evidence. Unscored cases remain visible in the planned 147
 positive-control and 189 mutation-control value-slot denominators.
 
-`--actual` exits before subprocess dispatch; bounded model evaluation and one
-budget across the evaluation batch remain later work. The local component
-timeout is not a model token/cost budget.
+The local component timeout is not a model token/cost budget. Task 014 Phase
+C2 adds the fixed-set actual evaluation interface below; the measured run and
+qualitative review remain pending.
+
+### Task 014 Phase C2 actual evaluation interface
+
+The actual mode validates the frozen nine-case corpus and hash-bound reviewed
+reference, then observes all nine source preflights before creating the model
+client. Seven approved source cases run in catalog order through the shared
+C1 controller with one client and one caller-owned ledger. The two rejected
+source cases make no count or generation request. The nine candidate
+mutations are replay controls and are never additional paid trials.
+
+An actual invocation requires the runtime `OPENAI_API_KEY`, explicit approval,
+and all three positive integer limits. The values below are placeholders: set
+them only after reviewing the requests and planning a bounded measured run.
+
+```sh
+python3 harness/evaluate_courses.py --actual --approve-model-calls \
+  --run-token-limit <RUN_TOKEN_LIMIT> \
+  --max-output-tokens <MAX_OUTPUT_TOKENS> \
+  --max-model-calls <MAX_MODEL_CALLS>
+```
+
+The limits are caller choices; the project does not select final measured-run
+limits. The runner uses the pinned OpenAI SDK 3.46.0, `gpt-6-luna`, low
+reasoning, and the existing isolated extraction request. Frozen source input
+does not make real model generation offline. The command does not collect
+sources; it still sends approved source text to the model service.
+
+The scorer independently scores the last completed fresh candidate, including
+checker-rejected candidates. Workflow/checker outcomes remain separate from
+field scores. Reports retain all nine planned rows and the seven-case fixed
+denominators: 147 value slots, 119 required-text atoms, and 77 prerequisite
+atoms. Exit 0 means all case outcomes and required artifacts were finalized
+with integrity preserved; it does not mean every extracted fact was correct.
+Configuration failures exit 2, incomplete evaluations exit 1, and interruption
+exits 130. Candidate qualitative review stays pending until separately
+performed.
+
+The C2 interface tests use injected SDK doubles, real shared-controller calls,
+and the local checker/renderer. Their evidence is labelled
+`execution_kind=injected_test` and `not_model_accuracy=true`; no provider
+model evaluation was performed in this phase.
+
+Actual evaluation verifies each completed case's candidate, checker, renderer
+and result receipts before moving to the next case. Missing or changed
+evidence stops the batch. A pass-through audit of the single native SDK
+client records count and generation invocations separately from budget
+reservations, including a count whose resulting request cannot fit the budget.
+The JSON and Markdown reports show factual quality as well as coverage.
+The manifest is written before the final, atomically replaced results receipt.
 
 ### Ordinary-WSL Phase B verification — 2026-11-07
 
@@ -190,8 +239,9 @@ whitespace checks, and protected-path diff checks passed.
 Verification log: `out/exam/task-013/wsl-phase-b-rW0DJI/verification.log`.
 Replay results: `out/course-evaluations/run-20261107T133047.144244Z-3671390d/results.json`.
 These offline controls do not measure model accuracy or instruction
-resistance. Candidate qualitative review, evaluation-batch budget integration,
-and actual model evaluation remain work for a later phase.
+resistance. Phase C2 now integrates the actual evaluation interface; the
+measured model run, qualitative review, live normal-workflow demonstration,
+and stress study remain pending.
 
 Run a live collection (refreshes the output, not the offline fixture):
 
@@ -372,8 +422,8 @@ python3 -m venv .venv
 
 The contract suite uses the real SDK methods with HTTPX2's in-memory
 `MockTransport`, a synthetic key, and an explicit `.invalid` origin. It makes
-no provider, network, or model calls. The SDK remains an isolated adapter
-dependency; production and evaluation commands do not use it.
+no provider, network, or model calls. The same pinned SDK supports the
+budgeted normal course workflow and explicitly approved actual evaluation.
 
 The adapter reads the SDK's raw HTTP JSON responses without response-model
 coercion. Token counts must be JSON integers; boolean, string and float

@@ -63,6 +63,11 @@ interviews or validation of employer demand have not been performed.
   reference independently of the production checker, keeps provenance groups
   separate, and reports fixed-denominator value and text coverage. It does
   not estimate model accuracy or instruction-resistance performance.
+- Task 014 Phase C2 adds an explicitly approved actual evaluation path through
+  the shared budgeted controller. It preflights the complete fixed corpus,
+  shares one client and one token ledger across all approved cases and retries,
+  and independently scores each last completed candidate without feeding
+  scores back into generation.
 
 ## Architecture and limits
 
@@ -110,10 +115,37 @@ git diff --check
 ```
 
 Task 013 replay output is retained under ignored `out/course-evaluations/`.
-The `--actual` option remains disabled before any subprocess or network
-dispatch; replay candidates are synthetic controls only. The shared budgeted
-controller is available to normal runs, but actual evaluation, complete-set
-qualitative review, and the live normal workflow remain later work.
+Replay remains the default and does not construct a model client. Actual mode
+requires `--actual --approve-model-calls` and explicit positive integer
+`--run-token-limit`, `--max-output-tokens`, and `--max-model-calls` options;
+replay rejects these approval and budget options. The limits are caller
+choices, and the project has not selected final measured-run limits. An actual
+run uses the frozen source corpus without collecting sources, but model
+generation still sends approved source text to the service.
+
+The nine source cases are all preflighted before provider dispatch. Seven are
+approved and run in catalog order through `course_workflow.run_course_workflow`
+with the same client and ledger. Two preflight rejections make zero count or
+generation requests. Candidate mutations remain offline replay controls.
+Scoring accepts `current_model` only in explicit actual mode; default replay
+continues to accept only its established provenance classes. Complete means
+all nine outcomes and required artifacts were finalized with integrity
+preserved, not that all extractions were correct. The report retains planned,
+scored, unscorable, and not-scored counts against 147 value slots, 119
+required-text atoms, and 77 prerequisite atoms. Qualitative review remains
+pending.
+
+Completed-case evidence is verified before another case can dispatch. Missing
+or changed candidate/checker/render/result receipts abandon the invocation.
+A pass-through request audit delegates to the same native SDK client; count
+requests and returned responses are tracked independently of reservations.
+Reports distinguish actual generation invocations from conservatively used
+model-call slots. The first failure is retained alongside later cleanup/report
+failures, and the final result receipt is committed after its manifest.
+
+The actual interface has only been exercised with injected SDK doubles in
+Phase C2. Such reports use `execution_kind=injected_test` and
+`not_model_accuracy=true`; they do not claim provider-generated answers.
 
 At the initial Phase B checkpoint, the corpus check passed all nine source
 cases, the focused suite passed 15 tests with no skips, and replay reported a

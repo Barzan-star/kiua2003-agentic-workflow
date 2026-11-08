@@ -37,6 +37,7 @@ SCALAR_DENOMINATOR = 21
 REQUIRED_TEXT_DENOMINATOR = 17
 PREREQUISITE_ATOM_DENOMINATOR = 11
 REPLAY_PROVENANCE = frozenset({"synthetic_reference", "mutated_candidate", "recorded_model"})
+ACTUAL_PROVENANCE = frozenset({"current_model"})
 REPORT_VERSION = 2
 
 
@@ -300,10 +301,23 @@ def _score_text_atoms(facts, records):
     return results
 
 
-def score_candidate(candidate, reference, case_id, *, provenance="synthetic_reference", candidate_error=None):
-    """Score one candidate against fixed facts for an accepted source case."""
-    if not isinstance(provenance, str) or provenance not in REPLAY_PROVENANCE:
-        raise ScoringError("replay scoring requires a recognised replay provenance class")
+def _allowed_provenance(evaluation_mode):
+    if evaluation_mode == "replay":
+        return REPLAY_PROVENANCE
+    if evaluation_mode == "actual":
+        return ACTUAL_PROVENANCE
+    raise ScoringError("evaluation_mode must be 'replay' or 'actual'")
+
+
+def score_candidate(candidate, reference, case_id, *, provenance="synthetic_reference",
+                    candidate_error=None, evaluation_mode="replay"):
+    """Score one candidate against fixed facts for an accepted source case.
+
+    Replay remains the default provenance boundary. The explicit actual mode
+    accepts only ``current_model`` and does not change the fixed scoring rules.
+    """
+    if not isinstance(provenance, str) or provenance not in _allowed_provenance(evaluation_mode):
+        raise ScoringError(f"{evaluation_mode} scoring requires a recognised provenance class")
     _checked_reference, generated, base = load_reviewed_reference()
     validate_reviewed_reference(reference, generated, base)
     if case_id not in {f"S{i:02d}-" + suffix for i, suffix in enumerate((
@@ -353,6 +367,7 @@ def score_candidate(candidate, reference, case_id, *, provenance="synthetic_refe
     prerequisite_covered = sum(item["covered"] for item in prerequisite_results)
     return {
         "report_version": REPORT_VERSION,
+        "evaluation_mode": evaluation_mode,
         "case_id": case_id,
         "provenance_class": provenance,
         "candidate_status": "unscorable" if candidate_unscorable else "scoreable",
@@ -376,11 +391,14 @@ def score_candidate(candidate, reference, case_id, *, provenance="synthetic_refe
     }
 
 
-def aggregate_scores(scores):
-    """Aggregate only an explicitly supplied single provenance group."""
+def aggregate_scores(scores, *, evaluation_mode="replay"):
+    """Aggregate one provenance group accepted by the selected evaluation mode."""
+    allowed = _allowed_provenance(evaluation_mode)
     if any(not isinstance(item, dict) or not isinstance(item.get("provenance_class"), str)
-           or item["provenance_class"] not in REPLAY_PROVENANCE for item in scores):
-        raise ScoringError("score aggregates contain an unsupported provenance class")
+           or item["provenance_class"] not in allowed for item in scores):
+        raise ScoringError(f"{evaluation_mode} aggregates contain an unsupported provenance class")
+    if any("evaluation_mode" in item and item["evaluation_mode"] != evaluation_mode for item in scores):
+        raise ScoringError("score aggregate contains results from a different evaluation mode")
     groups = {item.get("provenance_class") for item in scores}
     if len(groups) > 1:
         raise ScoringError("aggregate_scores accepts exactly one provenance group")
@@ -395,6 +413,7 @@ def aggregate_scores(scores):
     factual_wrong_count = sum(item["incorrect_populated_claim_count"] for item in scores)
     return {
         "report_version": REPORT_VERSION,
+        "evaluation_mode": evaluation_mode,
         "provenance_class": next(iter(groups), None),
         "candidate_count": len(scores),
         "unscorable_candidate_count": sum(item["candidate_status"] == "unscorable" for item in scores),
