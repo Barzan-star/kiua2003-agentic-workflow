@@ -3,13 +3,16 @@
 ## Compulsory 2: automation course overview
 
 The walking skeleton covers exactly three Fagskolen Innlandet automation
-courses. A single command collects filtered source sections, snapshots that
-run's input, asks Codex to extract structured records, checks every fact
-against same-course source quotations, then publishes JSON and a Norwegian
-comparison locally:
+courses. The normal runner collects filtered source sections, snapshots that
+run's input, calls the Responses API through the budgeted course controller,
+checks every fact against same-course source quotations, then publishes JSON
+and a Norwegian comparison locally. Actual runs require a runtime
+`OPENAI_API_KEY` and three explicit positive integer limits. The values below
+are example caller choices, not project defaults:
 
 ```sh
-./harness/run_courses.sh --offline
+export OPENAI_API_KEY  # export a value already supplied by your environment
+./harness/run_courses.sh --offline --run-token-limit 32000 --max-output-tokens 12000 --max-model-calls 3
 ```
 
 ### Verified Compulsory 2 checkpoint -- 28 October 2026
@@ -29,10 +32,11 @@ Run the full regression suite from ordinary WSL:
 .venv/bin/python -m unittest discover -s tests
 ```
 
-The current suite has 28 course-specific tests and 37 retained W43 tests.
+The course runner and the unrelated W43 workflow remain separate command
+paths.
 
-`--offline` uses the checked-in source fixture for collection; the extraction
-stage still calls Codex. Without `--offline`, the existing collector fetches
+`--offline` uses the checked-in source fixture for collection; extraction
+still calls the model service. Without `--offline`, the existing collector fetches
 only the approved pages and `robots.txt` with its existing robots, timeout,
 pacing, response-size, and filtering controls. Preview without side effects:
 
@@ -41,14 +45,22 @@ pacing, response-size, and filtering controls. Preview without side effects:
 ./harness/run_courses.sh --dry-run
 ```
 
-Each execution retains its input snapshot, candidate files, model event logs,
-and checker feedback in a unique ignored `out/training/run-*` directory. A
-candidate must pass `eval/check_courses.py` before either
-`out/training/courses.json` or `out/training/comparison.md` is published. Only
-candidate validation rejection is retried, at most twice after the first
-attempt; model, timeout, missing-output, and checker infrastructure failures
-stop immediately. Offline means source collection uses the fixture; it does
-not mean model extraction runs offline.
+Each execution retains its input snapshot, fresh candidates, safe request and
+budget provenance, exact checker feedback, and rendered evidence in a unique
+ignored `out/training/run-*` directory. One caller-owned token ledger covers
+all attempts in the run. A candidate must pass `eval/check_courses.py` before
+either `out/training/courses.json` or `out/training/comparison.md` is
+published. Only a completed candidate rejection is retried, at most three
+attempts total; uncertain usage, budget, provider, checker, and renderer
+failures stop the run. The two published files are replaced separately, so
+publication is not an atomic two-file transaction. Offline means source
+collection uses the fixture; model extraction still uses the service.
+
+CLI exit codes are: `2` invalid arguments, `3` missing runtime key, `4`
+collection or source rejection, `5` three rejected candidates, `6` exhausted
+token or call allowance, `7` provider/protocol abort, and `8` checker,
+renderer, evidence, or publication failure. Dry-run and successful runs exit
+`0`; interrupted extraction/checking/rendering exits `130`.
 
 For non-null dates, the checker also verifies the requested role from the
 cited source section. It reads explicit labelled field/value dates and maps
@@ -64,14 +76,13 @@ found later in unrelated prose. Every row of the supported flattened table is
 examined: differing values without an offering selector are ambiguous, and
 unrecognised rows are rejected instead of silently selecting the first row.
 
-The original read-only source snapshot is retained unchanged. An additional
-`agent-source-view.json` annotates those same sections with their zero-based
-indices. Each retry receives the preceding rejected JSON and complete checker
-feedback, so it can repair that candidate without starting again from an
-unrelated response. The prompt requires source-language text copied from its
-evidence, complete missing-field flags, and preservation of alternative
-admission routes and qualifications. The checker still decides whether to
-accept the result; these prompt changes do not guarantee model success.
+The original read-only source snapshot is retained unchanged. Each retry
+receives the preceding rejected JSON and complete checker feedback through
+the existing repair contract, so it can repair that candidate without
+starting again from an unrelated response. The model request contains only
+approved source data, the existing extraction instructions and schema, and
+the production checker's repair feedback. The checker still decides whether
+to accept the result; the prompt does not guarantee model success.
 
 The checked-in schema is `harness/course_records.schema.json`. Each extracted
 fact includes a verbatim quotation and zero-based source section index, so
@@ -86,6 +97,38 @@ The source collector gathers filtered course sections from the three approved
 pages. It stores labelled source evidence in
 `out/training/course-sources.json`. Source text is untrusted data throughout
 the extraction and comparison workflow.
+
+### Task 014 Phase C1: budgeted normal course controller
+
+`harness/course_workflow.py` is the shared extraction/check/retry/render entry
+point for normal runs and later evaluation use. Callers supply a fresh case
+evidence directory, an injected SDK client, and the existing `TokenLedger`;
+the controller does not create or reset a ledger. The normal command creates
+one ledger per run. `harness/run_courses.sh` resolves the repository root and
+uses `.venv/bin/python` when available, otherwise `python3`.
+
+Before collection or output creation, actual CLI runs validate the explicit
+limits and check that `OPENAI_API_KEY` is present without displaying it.
+Collector, checker, and renderer subprocesses receive environments with that
+key removed. Dry-runs require neither credentials nor an installed SDK and
+create no files. `--offline` changes source collection only.
+
+The controller keeps candidates and component evidence under each run's
+evidence directory and renders there before normal CLI publication. Actual
+evaluation remains disabled; callers that use the shared function directly
+must keep the same batch ledger for every case.
+
+The controller blocks that ledger before returning an infrastructure abort
+after a context, storage, component, or evidence failure. Interruption also
+abandons the shared run. Final failure receipts are best effort when storage
+is unavailable; receipt failure cannot authorize another model call. Source
+contract rejection remains distinct from a source-snapshot write failure.
+
+The 2026-11-08 provider checkpoint is recorded in
+`docs/meetings/2026-11-08-budget-integration.md`. Its independent score of one
+recorded pilot candidate was 20/21 value slots, 17/17 required text atoms, and
+11/11 prerequisite atoms. This is one pilot result, not overall model
+accuracy; qualitative review of the complete evaluation set remains pending.
 
 ## Task 013 offline course evaluation
 
@@ -125,9 +168,9 @@ child exit code. Failed runs retain partial results, a final error manifest,
 and integrity evidence. Unscored cases remain visible in the planned 147
 positive-control and 189 mutation-control value-slot denominators.
 
-`--actual` exits before subprocess dispatch; bounded model evaluation and
-budget enforcement remain later work. The local component timeout is not a
-model token/cost budget.
+`--actual` exits before subprocess dispatch; bounded model evaluation and one
+budget across the evaluation batch remain later work. The local component
+timeout is not a model token/cost budget.
 
 ### Ordinary-WSL Phase B verification — 2026-11-07
 
@@ -147,8 +190,8 @@ whitespace checks, and protected-path diff checks passed.
 Verification log: `out/exam/task-013/wsl-phase-b-rW0DJI/verification.log`.
 Replay results: `out/course-evaluations/run-20261107T133047.144244Z-3671390d/results.json`.
 These offline controls do not measure model accuracy or instruction
-resistance. Candidate qualitative review, budget enforcement, and actual model
-evaluation remain work for a later phase.
+resistance. Candidate qualitative review, evaluation-batch budget integration,
+and actual model evaluation remain work for a later phase.
 
 Run a live collection (refreshes the output, not the offline fixture):
 

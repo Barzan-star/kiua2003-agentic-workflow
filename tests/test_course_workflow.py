@@ -1,3 +1,5 @@
+"""Normal course CLI tests with a test-local SDK double and offline sources."""
+
 import json
 import os
 from pathlib import Path
@@ -9,196 +11,275 @@ import unittest
 
 from test_course_records import SOURCE, make_candidate
 
+
 ROOT = Path(__file__).resolve().parents[1]
+FAKE_OPENAI = r'''"""Test-only OpenAI replacement; it has no HTTP implementation."""
+import json, os, pathlib
+
+class RawResponse:
+    def __init__(self, payload, request_id):
+        self.status_code = 200
+        self.headers = {"content-type": "application/json", "x-request-id": request_id}
+        self.content = json.dumps(payload, separators=(",", ":")).encode()
+    def close(self):
+        pass
+
+class Raw:
+    def __init__(self, payload, request_id):
+        self.http_response = RawResponse(payload, request_id)
+
+class Calls:
+    def __init__(self):
+        self.count = self
+        self.with_raw_response = self
+    def count(self, **kwargs):
+        return Raw({"object":"response.input_tokens", "input_tokens":100}, "req_count")
+
+class Responses:
+    def __init__(self, owner):
+        self.owner = owner
+        self.input_tokens = type("InputTokens", (), {})()
+        self.input_tokens.with_raw_response = type("CountRaw", (), {"count":owner.count})()
+        self.with_raw_response = type("CreateRaw", (), {"create":owner.create})()
+
+class FakeClient:
+    max_retries = 0
+    timeout = 90
+    def __init__(self):
+        self.calls = 0
+        self.responses = Responses(self)
+    def count(self, **kwargs):
+        return Raw({"object":"response.input_tokens", "input_tokens":100}, "req_count")
+    def create(self, **kwargs):
+        self.calls += 1
+        if os.environ.get("TEST_CREATE_ERROR"):
+            raise TimeoutError("TEST_SECRET_NATIVE_ERROR")
+        sequence = json.loads(os.environ.get("CANDIDATE_SEQUENCE", "[]"))
+        candidate_path = sequence[min(self.calls - 1, len(sequence) - 1)] if sequence else os.environ["VALID_CANDIDATE"]
+        text = pathlib.Path(candidate_path).read_text(encoding="utf-8")
+        log_path = os.environ.get("REQUEST_LOG")
+        if log_path:
+            with open(log_path, "a", encoding="utf-8") as stream:
+                stream.write(json.dumps(kwargs, ensure_ascii=False) + "\n")
+        response = {
+          "object":"response", "id":f"resp_{self.calls}", "model":"gpt-6-luna", "status":"completed",
+          "usage":{"input_tokens":100,"output_tokens":30,"total_tokens":130},
+          "output":[] if os.environ.get("TEST_EMPTY_OUTPUT") else [{"type":"message","role":"assistant","status":"completed",
+                      "content":[{"type":"output_text","text":text}]}]
+        }
+        return Raw(response, f"req_create_{self.calls}")
+    def close(self):
+        pass
+
+def OpenAI(**kwargs):
+    assert kwargs["max_retries"] == 0
+    assert kwargs["api_key"] == os.environ["OPENAI_API_KEY"]
+    return FakeClient()
+'''
 
 
-class CourseWorkflowTests(unittest.TestCase):
+class CourseWorkflowCliTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name) / "repo"
         self.root.mkdir()
         for name in ("harness", "eval", "fixtures"):
             shutil.copytree(ROOT / name, self.root / name, ignore=shutil.ignore_patterns("__pycache__"))
-        (self.root / "out").mkdir()
-        (self.root / "harness/run_courses.sh").chmod(0o755)
+        runner = self.root / "harness/run_courses.sh"
+        runner.chmod(0o755)
+        (self.root / "openai.py").write_text(FAKE_OPENAI, encoding="utf-8")
         self.state = Path(self.temp.name) / "state"
         self.state.mkdir()
-        self.bin = Path(self.temp.name) / "bin"
-        self.bin.mkdir()
-        self.fixture = self.state / "source.json"
-        self.fixture.write_text(json.dumps(SOURCE), encoding="utf-8")
         self.valid = self.state / "valid.json"
         self.valid.write_text(json.dumps(make_candidate()), encoding="utf-8")
+        bad = make_candidate()
+        bad["courses"][0]["study_fee_nok"]["amount"] = 777
         self.invalid = self.state / "invalid.json"
-        invalid_candidate = make_candidate()
-        invalid_candidate["courses"][0]["study_fee_nok"]["amount"] = 777
-        self.invalid.write_text(json.dumps(invalid_candidate), encoding="utf-8")
-        self._write_stub("python3", '''#!/bin/sh
-printf '%s\\n' "$*" >> "$COMMAND_LOG"
-if [ "$1" = "harness/course_sources.py" ]; then
-  mkdir -p out/training
-  cp "$SOURCE_FIXTURE" out/training/course-sources.json
-  exit 0
-fi
-if [ "$1" = "eval/check_courses.py" ] && [ "${CHECKER_MODE:-}" = "infrastructure" ]; then
-  echo 'simulated checker infrastructure failure' >&2
-  exit 2
-fi
-exec "$REAL_PYTHON" "$@"
-''')
-        self._write_stub("timeout", '''#!/bin/sh
-printf 'timeout %s\\n' "$*" >> "$COMMAND_LOG"
-if [ -n "${TIMEOUT_STATUS:-}" ]; then exit "$TIMEOUT_STATUS"; fi
-shift 2
-exec "$@"
-''')
-        self._write_stub("codex", '''#!/usr/bin/env python3
-import json, os, pathlib, sys
-state = pathlib.Path(os.environ["STATE_DIR"])
-count_file = state / "codex-count"
-count = int(count_file.read_text()) + 1 if count_file.exists() else 1
-count_file.write_text(str(count))
-(state / f"args-{count}.json").write_text(json.dumps(sys.argv[1:]))
-(state / f"prompt-{count}.md").write_text(sys.stdin.read())
-if os.environ.get("CODEX_FAIL"):
-    raise SystemExit(int(os.environ["CODEX_FAIL"]))
-if os.environ.get("CODEX_NO_OUTPUT"):
-    raise SystemExit(0)
-target = pathlib.Path(sys.argv[sys.argv.index("-o") + 1])
-sequence = json.loads(os.environ.get("CANDIDATE_SEQUENCE", "[]"))
-source = pathlib.Path(sequence[min(count - 1, len(sequence) - 1)] if sequence else os.environ.get("INVALID_CANDIDATE", os.environ["VALID_CANDIDATE"]))
-target.write_bytes(source.read_bytes())
-''')
-        self.command_log = self.state / "commands.log"
+        self.invalid.write_text(json.dumps(bad, ensure_ascii=False), encoding="utf-8")
+        self.request_log = self.state / "requests.jsonl"
         self.env = os.environ.copy()
+        self.env.pop("OPENAI_API_KEY", None)
         self.env.update({
-            "PATH": str(self.bin) + os.pathsep + self.env.get("PATH", ""),
-            "REAL_PYTHON": sys.executable,
-            "SOURCE_FIXTURE": str(self.fixture),
             "VALID_CANDIDATE": str(self.valid),
-            "COMMAND_LOG": str(self.command_log),
-            "STATE_DIR": str(self.state),
+            "REQUEST_LOG": str(self.request_log),
         })
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def _write_stub(self, name, content):
-        path = self.bin / name
-        path.write_text(content, encoding="utf-8")
-        path.chmod(0o755)
+    def run_runner(self, *args, cwd=None):
+        return subprocess.run(
+            [str(self.root / "harness/run_courses.sh"), *args],
+            cwd=cwd or self.root,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
 
-    def run_runner(self, *args):
-        return subprocess.run([str(self.root / "harness/run_courses.sh"), *args], cwd=self.root, env=self.env, capture_output=True, text=True)
+    def run_actual(self, *args, cwd=None):
+        self.env["OPENAI_API_KEY"] = "TEST_SECRET_DO_NOT_LOG"
+        return self.run_runner(
+            "--offline", "--run-token-limit", "1000", "--max-output-tokens", "100",
+            "--max-model-calls", "3", *args, cwd=cwd,
+        )
 
-    def codex_count(self):
-        path = self.state / "codex-count"
-        return int(path.read_text()) if path.exists() else 0
+    def seed_publication(self):
+        training = self.root / "out/training"
+        training.mkdir(parents=True, exist_ok=True)
+        (training / "courses.json").write_text("old-json\n", encoding="utf-8")
+        (training / "comparison.md").write_text("old-markdown\n", encoding="utf-8")
+        return training
 
-    def test_dry_run_is_side_effect_free(self):
-        result = self.run_runner("--offline", "--dry-run")
+    def assert_old_publication(self, training):
+        self.assertEqual((training / "courses.json").read_text(), "old-json\n")
+        self.assertEqual((training / "comparison.md").read_text(), "old-markdown\n")
+
+    def stub_copied_cli(self, name, exit_code):
+        # Stub only the script entry point in this temporary repository. Its
+        # importable production functions remain unchanged for preflight.
+        path = self.root / "harness" / name
+        text = path.read_text(encoding="utf-8")
+        marker = 'if __name__ == "__main__":'
+        self.assertIn(marker, text)
+        path.write_text(text[:text.rindex(marker)] + marker + f"\n    raise SystemExit({exit_code})\n", encoding="utf-8")
+
+    def test_both_dry_runs_need_no_key_sdk_or_output_tree(self):
+        for arguments in (("--offline", "--dry-run"), ("--dry-run",)):
+            result = self.run_runner(*arguments, cwd=self.state)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Responses API", result.stdout)
+            self.assertIn("--run-token-limit", result.stdout)
+            self.assertIn("evidence", result.stdout.lower())
+            self.assertFalse((self.root / "out").exists())
+            self.assertFalse(self.request_log.exists())
+            self.assertNotIn("TEST_SECRET_DO_NOT_LOG", result.stdout + result.stderr)
+
+    def test_missing_unknown_and_invalid_arguments_fail_before_output_creation(self):
+        for arguments in ((), ("--unknown",), ("--run-token-limit", "0"),
+                          ("--run-token-limit", "10", "--max-output-tokens", "2")):
+            result = self.run_runner(*arguments)
+            self.assertEqual(result.returncode, 2, (arguments, result.stderr))
+            self.assertFalse((self.root / "out").exists())
+            self.assertFalse(self.request_log.exists())
+
+    def test_missing_runtime_key_fails_before_live_collection_or_output_creation(self):
+        result = self.run_runner("--run-token-limit", "100", "--max-output-tokens", "20", "--max-model-calls", "1")
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertNotIn("TEST_SECRET", result.stdout + result.stderr)
+        self.assertFalse((self.root / "out").exists())
+        self.assertFalse(self.request_log.exists())
+        self.env["OPENAI_API_KEY"] = "   "
+        whitespace = self.run_runner("--run-token-limit", "100", "--max-output-tokens", "20", "--max-model-calls", "1")
+        self.assertEqual(whitespace.returncode, 3)
+        self.assertFalse((self.root / "out").exists())
+
+    def test_offline_budgeted_cli_publishes_after_check_and_render(self):
+        result = self.run_actual()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse((self.root / "out/training").exists())
-        self.assertFalse(self.command_log.exists())
-        self.assertIn("course_records.schema.json", result.stdout)
-
-    def test_valid_candidate_publishes_json_and_source_linked_markdown(self):
-        result = self.run_runner("--offline")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.codex_count(), 1)
         training = self.root / "out/training"
         published = json.loads((training / "courses.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(published["courses"]), 3)
+        self.assertEqual(published, make_candidate())
         markdown = (training / "comparison.md").read_text(encoding="utf-8")
         self.assertIn("Søknadsfrist", markdown)
         self.assertIn("Kildeinnhentet", markdown)
-        self.assertIn("https://www.fagskolen-innlandet.no/utdanninger/automasjon-for-elektrikere-pls", markdown)
         run_dirs = list(training.glob("run-*"))
         self.assertEqual(len(run_dirs), 1)
-        self.assertEqual(json.loads((run_dirs[0] / "course-sources.json").read_text()), SOURCE)
-        self.assertFalse(os.access(run_dirs[0] / "course-sources.json", os.W_OK))
-        args = json.loads((self.state / "args-1.json").read_text())
-        for flag in ("--strict-config", "--ephemeral", "--json", "--output-schema"):
-            self.assertIn(flag, args)
-        self.assertEqual(args[args.index("-m") + 1], "gpt-6-luna")
-
-    def test_model_failure_stops_without_publication(self):
-        self.env["CODEX_FAIL"] = "7"
-        result = self.run_runner("--offline")
-        self.assertEqual(result.returncode, 7)
-        self.assertEqual(self.codex_count(), 1)
-        self.assertFalse((self.root / "out/training/courses.json").exists())
-
-    def test_missing_candidate_stops_without_using_old_or_publishing(self):
-        self.env["CODEX_NO_OUTPUT"] = "1"
-        result = self.run_runner("--offline")
-        self.assertEqual(result.returncode, 2)
-        self.assertEqual(self.codex_count(), 1)
-        self.assertFalse((self.root / "out/training/courses.json").exists())
-
-    def test_only_validation_rejection_retries_and_exact_feedback_is_passed(self):
-        self.env["INVALID_CANDIDATE"] = str(self.invalid)
-        result = self.run_runner("--offline")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.codex_count(), 3)
-        feedback = "study fee amount does not match a quoted NOK amount"
-        self.assertIn(feedback, (self.state / "prompt-2.md").read_text())
-        self.assertIn(feedback, (self.state / "prompt-3.md").read_text())
-        self.assertFalse((self.root / "out/training/courses.json").exists())
-
-    def test_agent_receives_explicit_indices_without_changing_source_snapshot(self):
-        result = self.run_runner("--offline")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        run = next((self.root / "out/training").glob("run-*"))
-        snapshot = json.loads((run / "course-sources.json").read_text())
+        snapshot = json.loads((run_dirs[0] / "course-sources.json").read_text(encoding="utf-8"))
         self.assertEqual(snapshot, SOURCE)
-        view_path = run / "agent-source-view.json"
-        view = json.loads(view_path.read_text(encoding="utf-8"))
-        self.assertEqual(len(view["courses"]), len(SOURCE["courses"]))
-        for original, annotated in zip(SOURCE["courses"], view["courses"]):
-            self.assertEqual(original["course_id"], annotated["course_id"])
-            self.assertEqual(len(original["source_sections"]), len(annotated["source_sections"]))
-            for index, (section, displayed) in enumerate(zip(original["source_sections"], annotated["source_sections"])):
-                self.assertEqual(displayed, {**section, "section_index": index})
-        prompt = (self.state / "prompt-1.md").read_text(encoding="utf-8")
-        self.assertIn(view_path.read_text(encoding="utf-8"), prompt)
+        self.assertFalse(os.access(run_dirs[0] / "course-sources.json", os.W_OK))
+        self.assertTrue((run_dirs[0] / "ledger.json").is_file())
+        self.assertTrue((run_dirs[0] / "case/candidate.json").is_file())
+        self.assertTrue((run_dirs[0] / "case/candidate-check.json").is_file())
+        self.assertTrue((run_dirs[0] / "case/rendered-courses.json").is_file())
+        self.assertEqual(len(self.request_log.read_text(encoding="utf-8").splitlines()), 1)
+        request = json.loads(self.request_log.read_text(encoding="utf-8").splitlines()[0])
+        self.assertEqual(request["max_output_tokens"], 100)
+        self.assertNotIn("TEST_SECRET_DO_NOT_LOG", json.dumps(request))
+        self.assertNotIn("S00-base", json.dumps(request))
+        self.assertNotIn("course-evaluation-reference", json.dumps(request))
+        self.assertNotIn("TEST_SECRET_DO_NOT_LOG", result.stdout + result.stderr)
 
-    def test_retry_has_rejected_candidate_and_feedback_before_valid_publication(self):
-        self.env["CANDIDATE_SEQUENCE"] = json.dumps([str(self.invalid), str(self.valid)])
-        result = self.run_runner("--offline")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.codex_count(), 2)
-        prompt = (self.state / "prompt-2.md").read_text(encoding="utf-8")
-        self.assertTrue(self.invalid.read_text(encoding="utf-8") in prompt,
-                        "The retry prompt must contain the actual rejected JSON candidate")
-        self.assertIn("study fee amount does not match a quoted NOK amount", prompt)
-        published = self.root / "out/training/courses.json"
-        self.assertEqual(json.loads(published.read_text()), make_candidate())
-
-    def test_checker_infrastructure_error_does_not_retry_or_publish(self):
-        self.env["CHECKER_MODE"] = "infrastructure"
-        result = self.run_runner("--offline")
-        self.assertEqual(result.returncode, 2)
-        self.assertEqual(self.codex_count(), 1)
-        self.assertFalse((self.root / "out/training/courses.json").exists())
-
-    def test_timeout_stops_before_codex_and_publication(self):
-        self.env["TIMEOUT_STATUS"] = "124"
-        result = self.run_runner("--offline")
-        self.assertEqual(result.returncode, 124)
-        self.assertEqual(self.codex_count(), 0)
-        self.assertFalse((self.root / "out/training/courses.json").exists())
-
-    def test_rejected_candidate_leaves_existing_publication_untouched(self):
+    def test_three_rejections_keep_prior_publication_unchanged(self):
         training = self.root / "out/training"
-        training.mkdir()
-        (training / "courses.json").write_text("old-valid-output\n")
-        (training / "comparison.md").write_text("old-valid-report\n")
-        self.env["INVALID_CANDIDATE"] = str(self.invalid)
-        result = self.run_runner("--offline")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual((training / "courses.json").read_text(), "old-valid-output\n")
-        self.assertEqual((training / "comparison.md").read_text(), "old-valid-report\n")
+        training.mkdir(parents=True)
+        (training / "courses.json").write_text("old-json\n", encoding="utf-8")
+        (training / "comparison.md").write_text("old-markdown\n", encoding="utf-8")
+        self.env["CANDIDATE_SEQUENCE"] = json.dumps([str(self.invalid)] * 3)
+        result = self.run_actual()
+        self.assertEqual(result.returncode, 5, result.stderr)
+        self.assertEqual((training / "courses.json").read_text(encoding="utf-8"), "old-json\n")
+        self.assertEqual((training / "comparison.md").read_text(encoding="utf-8"), "old-markdown\n")
+        self.assertEqual(len(self.request_log.read_text(encoding="utf-8").splitlines()), 3)
+        run = next(training.glob("run-*"))
+        case_dir = run / "case"
+        self.assertTrue((case_dir / "candidate.json").is_file())
+        result_evidence = json.loads((case_dir / "result.json").read_text(encoding="utf-8"))
+        self.assertEqual(result_evidence["status"], "candidate_rejected")
+        self.assertEqual(result_evidence["attempts"], 3)
+
+    def test_budgeted_success_from_outside_repository(self):
+        result = self.run_actual(cwd=self.state)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.root / "out/training/courses.json").is_file())
+        self.assertFalse((self.state / "out").exists())
+
+    def test_native_timeout_preserves_publication_and_hides_exception_message(self):
+        training = self.seed_publication()
+        self.env["TEST_CREATE_ERROR"] = "1"
+        result = self.run_actual()
+        self.assertEqual(result.returncode, 7, result.stderr)
+        self.assert_old_publication(training)
+        self.assertNotIn("TEST_SECRET_NATIVE_ERROR", result.stdout + result.stderr)
+        run = next(training.glob("run-*"))
+        ledger = json.loads((run / "ledger.json").read_text())
+        self.assertTrue(ledger["blocked"])
+        self.assertEqual(ledger["model_calls"], 1)
+        self.assertEqual(ledger["reservations"][0]["status"], "uncertain")
+
+    def test_empty_completed_output_cannot_publish_stale_candidate(self):
+        training = self.seed_publication()
+        self.env["TEST_EMPTY_OUTPUT"] = "1"
+        result = self.run_actual()
+        self.assertEqual(result.returncode, 7, result.stderr)
+        self.assert_old_publication(training)
+        self.assertEqual(len(self.request_log.read_text().splitlines()), 1)
+
+    def test_collector_failure_stops_before_generation(self):
+        training = self.seed_publication()
+        self.stub_copied_cli("course_sources.py", 9)
+        result = self.run_actual()
+        self.assertEqual(result.returncode, 4, result.stderr)
+        self.assertFalse(self.request_log.exists())
+        self.assert_old_publication(training)
+
+    def test_collector_success_without_a_fresh_snapshot_cannot_use_old_source(self):
+        training = self.seed_publication()
+        (training / "course-sources.json").write_text(json.dumps(SOURCE), encoding="utf-8")
+        self.stub_copied_cli("course_sources.py", 0)
+        result = self.run_actual()
+        self.assertEqual(result.returncode, 4, result.stderr)
+        self.assertFalse(self.request_log.exists())
+        self.assert_old_publication(training)
+
+    def test_insufficient_token_allowance_preserves_existing_publication(self):
+        training = self.seed_publication()
+        result = self.run_actual("--run-token-limit", "199")
+        self.assertEqual(result.returncode, 6, result.stderr)
+        self.assertFalse(self.request_log.exists())
+        self.assert_old_publication(training)
+        run = next(training.glob("run-*"))
+        self.assertEqual(json.loads((run / "ledger.json").read_text())["model_calls"], 0)
+
+    def test_renderer_failure_does_not_publish_a_partially_prepared_result(self):
+        training = self.seed_publication()
+        self.stub_copied_cli("render_courses.py", 9)
+        result = self.run_actual()
+        self.assertEqual(result.returncode, 8, result.stderr)
+        self.assert_old_publication(training)
+        self.assertEqual(len(self.request_log.read_text().splitlines()), 1)
+        run = next(training.glob("run-*"))
+        self.assertTrue(json.loads((run / "ledger.json").read_text())["blocked"])
 
 
 if __name__ == "__main__":

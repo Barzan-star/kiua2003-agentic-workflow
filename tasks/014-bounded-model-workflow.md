@@ -530,3 +530,150 @@ transport behavior only. Credentials, live count agreement, provider
 enforcement, production integration, and actual evaluation remain pending.
 Actual evaluation remains disabled. Earlier Phase A and B1 checkpoints above
 remain historical evidence.
+
+## Phase C1 normal-run integration (2026-11-08)
+
+This bounded phase changes only the eight authorized paths: the new shared
+`harness/course_workflow.py`, the thin `harness/run_courses.sh` wrapper, the
+new `tests/test_budgeted_course_workflow.py`, updated
+`tests/test_course_workflow.py`, `README.md`, `SPEC.md`, this task record, and
+`docs/meetings/2026-11-08-budget-integration.md`. The ledger, adapter, source
+collector, production checker, renderer, prompt, schema, fixed corpus and
+reference, SDK contract tests, and `harness/evaluate_courses.py` are unchanged.
+Actual evaluation remains disabled.
+
+The shared controller takes a source bundle, caller-owned `TokenLedger`,
+injected SDK client, and a fresh case evidence directory. It preflights and
+detaches the source before provider dispatch, then uses the existing adapter
+for each count/reserve/create/settle attempt. The same ledger can be passed to
+successive case invocations. Only completed checker exit code 1 is retryable;
+the rejected JSON and exact complete checker output go through the existing
+repair contract. Malformed repair data, uncertain API outcomes, timeouts,
+checker failures, and renderer failures stop without retry. The controller
+keeps each candidate and component evidence in the case directory and renders
+only after acceptance. The normal CLI uses one run ledger and is the sole
+publisher of the two normal output files.
+
+The wrapper resolves the repository root, selects the project virtualenv
+Python when present, and otherwise uses `python3`. Actual CLI use requires
+`OPENAI_API_KEY` and positive `--run-token-limit`, `--max-output-tokens`, and
+`--max-model-calls`; missing or invalid values fail before collection or
+output creation. `--offline` affects source collection only. Dry-run creates
+no files, collects no source, invokes no checker/renderer, and constructs no
+client. Collector, checker, and renderer subprocesses have the API key removed
+from their environments. Normal JSON and Markdown publication happens only
+after checker acceptance and successful rendering. The pair of output-file
+replacements is not claimed to be atomic.
+
+### Provider checkpoint and separate pilot score
+
+The exact checkpoint artifacts under
+`out/exam/task-014/live-20261108T083934Z-72p24bam/` were reviewed. The observed
+run used `gpt-6-luna`, runtime reasoning `low`, OpenAI SDK 3.46.0, and zero SDK
+retries. Input counted and completed input usage both measured 4,414 tokens;
+output was 1,801 tokens including 163 reasoning tokens, and total usage was
+6,215. The output cap was 12,000, the run limit 16,414, and 10,199 tokens
+remained after settlement. There were two input-count requests across
+planning/execution and one generation. The ledger refused another request
+before either endpoint was touched while one of two model-call slots remained.
+The candidate checker passed, protected files were unchanged, and the probe
+exited 0. Count and create shared payload hash
+`a40cb8bf09448efa6193724efe81abe8b19e287433cf78bfae95f9f9ceacddb7`.
+
+This is one observed count/usage agreement and pre-dispatch budget refusal.
+The provider output cap was supplied and not exhausted. This is not a dollar
+spending guarantee, a production-integration result, or a nine-case
+evaluation.
+
+The unchanged candidate was independently scored against reviewed `S00-base`
+with `course_evaluation_scoring.score_candidate(...,
+provenance="recorded_model")`. Recomputed results are in the ignored
+`out/exam/task-014/live-20261108T083934Z-72p24bam/independent-pilot-score.json`:
+20/21 value slots correct, 17/17 required text atoms covered, and 11/11
+prerequisite atoms covered. The single incorrect slot is
+`robot-delivery-format`, where a supported value is also listed as missing.
+This is one pilot, not overall model accuracy. The candidate, checker, prompt,
+and benchmark were not changed; qualitative review of the complete evaluation
+set remains pending.
+
+### Initial Phase C1 offline verification checkpoint
+
+The following checks passed from the repository root:
+
+- `bash -n harness/run_courses.sh`: exit 0.
+- `./harness/run_courses.sh --offline --dry-run`: exit 0; no source collection,
+  client construction, API call, component subprocess, or file creation.
+- `./harness/run_courses.sh --dry-run`: exit 0 with the same no-side-effect
+  behavior.
+- `.venv/bin/python -m unittest discover -s tests -p 'test_budgeted_course_workflow.py'`:
+  11 tests passed, exit 0.
+- `.venv/bin/python -m unittest discover -s tests -p 'test_course_workflow.py'`:
+  5 tests passed, exit 0.
+- `python3 harness/course_evaluation_cases.py --check`: 9 source cases passed,
+  exit 0.
+- `python3 harness/evaluate_courses.py --replay`: offline component replay
+  passed as `run-20261108T091519.912146Z-44c4ba61`, exit 0.
+- `git diff --check`: exit 0.
+- `python3 harness/probe.py --offline` and `python3 eval/check_probe.py`:
+  both passed; checker output `PASS`, exit 0. The pre-existing ignored
+  `out/probe.json` hash was unchanged at
+  `ed8bce3c90d9ed0617e32527480293d881872afa126d29adde4f694c112c3749`.
+
+The branch remains `exam/budget-enforcement` at
+`1e881e5a9e2aa178956d8018f9a4f2f19c32c414`; annotated tag
+`compulsory2-skeleton` still targets commit
+`11e057ecd28387674b64bca96f3687bd1ca15643` (tag object
+`e8d594e70f2eb655327ec2e321c6b2822bc9de3e`). The runner remains mode 100755.
+The changed and new path set matches the eight authorized paths, and protected
+files have no working-tree diff. No files were staged, committed, pushed, or
+tagged. The complete SDK/MCP repository suite remains for ordinary WSL after
+review. No paid normal run or actual evaluation was performed in this phase.
+
+Review delivery: `out/exam/task-014/task-014-phase-c1-review.zip`, with the
+same archive copied to Windows Downloads.
+
+### Phase C1 failure-containment review and repair — 2026-11-08
+
+Controlled faults exposed gaps after the initial focused checks. A failed
+renderer-receipt write was ignored, allowing an accepted result; source
+snapshot I/O was classified as source rejection; and component interruption
+could escape with an open shared ledger. Separate context/provenance/result
+write faults also lacked a complete abandonment boundary. A later case could
+therefore dispatch after an infrastructure failure.
+
+The extended controller suite against the unchanged C1 implementation ran
+20 tests with 5 failures and 3 errors, exit 1. The repair adds a case-level
+abandonment boundary, blocks the existing ledger before best-effort error
+receipts, separates data validation from context/storage errors, and requires
+renderer evidence before acceptance. Unexpected native error text is not
+logged. Interrupted cases return a structured abandoned result; the CLI
+uses exit 130. No ledger/adapter/checker/reference change was required.
+
+After repair, all 20 controller tests and 12 CLI tests passed. CLI coverage
+includes source-collection failure/staleness, provider timeout, empty output,
+budget exhaustion, rendering failure, prior-publication preservation, and
+execution outside the repository. Token-budget tests separately demonstrate
+sharing across retries and cases with call slots still available.
+
+The broader available SDK-independent suite passed 211 tests with zero skips.
+Its explicit exclusions were `test_mcp_met.py` and
+`test_openai_course_sdk.py`, whose dependencies were unavailable in the review
+environment. Syntax, both previews, corpus validation, offline replay and
+offline probe/checker passed. This is offline controller regression evidence,
+not a complete SDK/MCP result, paid normal run, actual evaluation, or the
+completed exam stress-testing study. Full ordinary-WSL verification remains
+pending. Frozen inputs, the pilot candidate and all unrelated code remain
+unchanged; nothing was staged, committed, pushed or tagged.
+
+### Completed ordinary-WSL Phase C1 verification — 2026-11-08
+
+The completed verification evidence is preserved under
+`out/exam/task-014/wsl-c1-review-2n94oqjf/`. The full ordinary-WSL test
+discovery run passed all 230 tests with no skips. All 11 recorded verification
+commands exited 0, and all 20 preserved-file hashes matched before and after
+verification. The eight-path scope, protected-file, runner mode 100755, and
+`compulsory2-skeleton` tag checks passed. Earlier checkpoints above remain
+historical records of their own verification runs.
+
+Actual evaluation and a live normal-workflow run remain pending. This
+checkpoint does not claim either result.
