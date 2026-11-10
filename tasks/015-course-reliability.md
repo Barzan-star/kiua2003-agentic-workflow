@@ -201,3 +201,141 @@ in-memory test transport; they were not provider requests. Workflow-side
 reliability work and a post-change measured evaluation remain pending. This
 checkpoint does not complete Task 015 and makes no claim that model accuracy
 improved.
+
+## Proposed workflow contract (test-first phase)
+
+1. After validating the exact approved course-ID set, assemble `title`,
+   `source_url` and `retrieved_at` from the immutable preflighted source
+   snapshot. Never guess, replace or repair course IDs.
+2. Preserve each raw model response byte-for-byte separately from the
+   assembled candidate. Link raw output, source snapshot and checked candidate
+   with hashes and a versioned assembly receipt identifying metadata changes.
+3. Preserve every non-metadata value, evidence item and missing flag. Invalid
+   facts and contradictions must still be rejected.
+4. Checker, renderer and retry feedback must refer consistently to the
+   assembled candidate. Keep the preceding rejected candidate aligned with the
+   checker feedback supplied on retry.
+5. Missing, changed or unwritable required evidence must stop further
+   dispatch and block the shared ledger. Evaluation must verify both raw and
+   assembled evidence before continuing.
+6. Conflicting offerings without a supported selection require abstention for
+   affected dates. Identical repeated offerings remain valid. Do not silently
+   rewrite model-supplied dates.
+7. Retain the current API schema for this phase. Describe metadata assembly
+   honestly: the model may still emit metadata, but trusted source metadata
+   determines the checked/published record.
+
+### Receipt contract for the test-first phase
+
+Each completed generation must retain its decoded model text verbatim as
+UTF-8 bytes in a per-attempt raw-response file. Assembly produces a distinct
+candidate file; raw response bytes are never rewritten to make them match the
+candidate. A versioned per-attempt receipt links the raw response, immutable
+source snapshot, and assembled candidate using SHA-256 hashes computed over
+the exact stored bytes. It also records the metadata fields changed for each
+course, with the model-emitted and source-snapshot values. Non-metadata facts,
+evidence, and missing flags remain byte-equivalent at the JSON-value level.
+Retries carry the exact preceding assembled candidate and exact checker
+feedback. Evaluation verifies the raw, source, receipt, and candidate links
+before it continues to another case; missing, modified, or unwritable required
+evidence is an infrastructure failure and blocks the shared ledger.
+
+### Test-first corrections (2026-11-08)
+
+Corrected the initial workflow test draft before production implementation.
+Repeated-offering coverage now duplicates only an offering row and has distinct
+conflicting-date, explicit-unknown-with-required-flags, and identical-row
+controls. The simulated SDK supplies three generation responses per rejection
+scenario and tracks count and generation requests separately; each scenario
+uses fresh evidence and ledger files. Metadata assembly checks use malformed
+IDs through the shared workflow, require one generation for metadata-only
+correction, preserve all non-metadata values, and require a versioned receipt
+with raw/source/candidate hashes and metadata changes. Retry assertions bind
+the exact prior candidate and checker feedback. Fault injection covers
+evidence-write failure and evaluator evidence integrity; publication checks
+run the normal CLI with injected collection/provider doubles and compare the
+actual JSON and Markdown publication targets byte-for-byte after rejection.
+No production implementation was changed for this correction. The captured
+test results and production-file hashes are in the new correction evidence
+directory under `out/exam/task-015/`.
+
+### Reviewed workflow regression baseline (2026-11-08)
+
+The initial corrected draft reported nine tests with four failures. Further
+review found that its evaluator test blocked the ledger in test code, its
+conflicting-date quotation omitted the newly added row, and its retry did not
+change metadata. Those passing checks did not establish the corresponding
+workflow contracts. The original test logs remain historical evidence.
+
+The revised tests invoke the real injected evaluator and require it to block
+the shared ledger automatically after missing or changed raw/assembly
+evidence. A clean seven-case injected execution is the positive control;
+existing candidate-tamper detection is also retained as a passing control.
+Retry tests now include both wrong course metadata and a wrong fee, and check
+the exact assembled candidate, checker feedback and request hashes. Faults
+inserted after checker receipt persistence must stop before the next token
+count request. Raw evidence includes leading/trailing whitespace. Publication
+tests redirect all CLI output into temporary storage that is cleaned up.
+
+The reviewed baseline ran in an isolated source copy with production hashes
+matching the uploaded checkpoint: 18 tests, seven passing controls and 11
+expected assertion failures, zero test errors or skips, exit code 1. These
+failures expose absent metadata assembly, raw/assembly receipt persistence,
+and required integrity checks before retry or the next evaluation case. They
+are not model-performance measurements. The 25 runtime/fixture file hashes
+checked in that isolated copy were unchanged. Ordinary-WSL reproduction is
+required before implementation; the repair helper records its own result in
+a fresh ignored evidence directory. No production implementation is included
+in this test-only update.
+
+Receipt version 1 uses per-attempt `raw-response-N.txt`, `assembly-N.json`
+and `candidate-N.json`. The receipt records `version`, `raw_sha256`,
+`source_sha256`, `candidate_sha256` and `metadata_changes`; each change
+contains `course_id`, `field`, `model_value` and `source_value`. Only title,
+source URL and retrieval timestamp may be assembled. Invalid course-ID sets
+remain unchanged and checker-rejected; assembly must not manufacture IDs or
+records. Keep the raw output and record the skipped assembly decision for
+those attempts. Preserve all other JSON values, evidence and flags.
+
+Hash links must bind the receipt as well as its referenced artifacts and
+verify that the assembled values match the raw candidate plus exactly the
+allowed trusted metadata changes. Missing, modified, malformed or unwritable
+required evidence blocks continuation. The raw text is retained before
+interpretation. The checker, renderer, repair input and current evaluation
+score all use the same assembled candidate. Historical evaluation artifacts
+and results are not regenerated or relabelled.
+
+### Workflow repair implementation (2026-11-08)
+
+The shared controller now validates course IDs as a complete unique set
+before applying trusted metadata by ID. It retains decoded output verbatim,
+records per-attempt raw/candidate/assembly evidence, and sends the assembled
+candidate through checker, renderer, and repair flow. Actual evaluation shares
+the assembly evidence verifier and verifies completed-case links before
+scoring or proceeding. Invalid ID sets remain unchanged for independent
+checker rejection. Deterministic tests and replay exercise this behavior; they
+are workflow checks, not a model-accuracy measurement. Historical evaluation
+artifacts and reference expectations were not changed.
+
+### Workflow integrity integration (2026-11-10)
+
+Integrated the exact controller/evaluator repair verified by the ordinary-WSL
+source-copy review in
+`out/exam/task-015/current-repair-review-20261110T100601Z-5100cc1c/`.
+Completed-attempt verification is shared across retry, acceptance, rejection
+and evaluation boundaries. It binds source/request identity, raw and assembled
+evidence, checker feedback and budget receipts to the caller-owned ledger.
+Boolean assembly versions are rejected. The original 18 metadata tests are
+unchanged; 13 evidence-integrity regressions were added in
+`tests/test_course_workflow_integrity.py`.
+
+The actual working repository passed 313 tests with zero failures, errors or
+skips, and corpus validation passed. Integration evidence and byte-preserving
+backups are in `out/exam/task-015/integration-20261110T130716Z-7778ac8c/`.
+The approved source-copy review also passed the offline probe/check, replay,
+runner syntax/previews and patch checks. Existing protected inputs and prior
+outputs were checked against the integration inventory.
+
+These checks establish deterministic integrity behavior. A separately declared
+post-change provider evaluation, qualitative review and remaining exam stress
+work are still pending. Historical Task 014 measurements remain unchanged.

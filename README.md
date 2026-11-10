@@ -1,5 +1,52 @@
 # Agentic Workflow Course Project
 
+## Exam evidence and offline reproduction
+
+The accepted skeleton is extended by measured evaluation, source-bound repairs
+and the chosen input/dependency stress study. Both retained model trials scored
+144/147 scalar slots; trusted assembly improved URL fidelity. Later guards
+reject known wrong-field values without rewriting those measurements. Read the
+[evaluation record](docs/exam/evaluation-2026-11-10.md),
+[stress study](docs/exam/stress-study-2026-11-10.md) and
+[safe-operation description](docs/safe-operation.md).
+
+Reproduce the ten stress controls from a source-only checkout:
+
+```sh
+python3 harness/stress_courses.py --offline
+```
+
+This makes no model request or live collection. It needs no API key, SDK
+installation, Git history or old run directory. Retained candidate fixtures and
+the in-memory provider double run inside a source copy. Traces, ledgers and
+input/code hashes appear under out/course-stress/. Failed controls remain
+visible and normal output is preserved. This does not measure model accuracy.
+
+The dated checkpoints below retain their original results. Student qualitative
+confirmation, demonstration/feedback, final paper/appendices and the exam tag
+remain separate. The course snapshots are historical, not current availability.
+
+## Task 016: planned-period and table checks
+
+The course checker rejects full calendar dates in `planned_period.value`;
+exact dates belong in their supported exact-date fields. A published season,
+month/year or quarter may remain an approximate period. The prompt requires
+an independently published period and otherwise preserves null, empty evidence
+and the missing flag. The precision guard does not prove full semantic meaning.
+The Markdown renderer keeps whitespace and literal pipes inside their table
+cells without changing JSON records or evidence. See
+`tasks/016-planned-period-validation.md` for the observed failure and controls.
+
+The fifteen regressions run without model calls:
+
+```sh
+.venv/bin/python -m unittest discover -s tests -p 'test_planned_period_role.py'
+```
+
+The stronger checker rejects three wrong-field values in two retained Task 015
+candidates. That offline recheck leaves the original 144/147 measurement and
+its raw outputs unchanged; it is not another model evaluation.
+
 ## Compulsory 2: automation course overview
 
 The walking skeleton covers exactly three Fagskolen Innlandet automation
@@ -117,6 +164,15 @@ The controller keeps candidates and component evidence under each run's
 evidence directory and renders there before normal CLI publication. Actual
 evaluation remains disabled; callers that use the shared function directly
 must keep the same batch ledger for every case.
+
+For Task 015, the workflow retains each decoded response verbatim as
+`raw-response-N.txt`, then assembles trusted title, source URL, and retrieval
+time by course ID from the read-only source snapshot. The independent checker,
+renderer, and repair request use that assembled candidate. Versioned assembly
+receipts bind raw, source, and candidate hashes and record each metadata
+change. Actual evaluation verifies those links before scoring the assembled
+candidate or moving to another case. These deterministic controls verify
+workflow behavior; they do not measure model accuracy.
 
 The controller blocks that ledger before returning an infrastructure abort
 after a context, storage, component, or evidence failure. Interruption also

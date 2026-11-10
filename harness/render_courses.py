@@ -6,6 +6,11 @@ import json
 from pathlib import Path
 
 
+def _table_cell(text):
+    """Keep display whitespace and source separators inside one table cell."""
+    return " ".join(text.split()).replace("\\", "\\\\").replace("|", "\\|")
+
+
 def render(records):
     """Return comparison Markdown without making further factual inferences."""
     lines = [
@@ -30,9 +35,11 @@ def render(records):
         }
         deadline = course["application_deadline"]["date"] or "Ikke oppgitt"
         start = course["start_date"]["date"] or "Ikke oppgitt"
-        lines.append(
-            f"| [{course['title']}]({course['source_url']}) | {deadline} | {start} | {planned} | {fee_text} | {status_names[course['application_status']['value']]} |"
-        )
+        cells = [
+            f"[{course['title']}]({course['source_url']})", deadline, start,
+            planned, fee_text, status_names[course['application_status']['value']],
+        ]
+        lines.append("| " + " | ".join(_table_cell(cell) for cell in cells) + " |")
     lines.extend(["", "## Opptakskrav", ""])
     for course in records["courses"]:
         lines.append(f"### [{course['title']}]({course['source_url']})")

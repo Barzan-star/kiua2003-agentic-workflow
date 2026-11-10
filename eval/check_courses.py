@@ -46,6 +46,15 @@ def _check_missing_flag(errors, prefix, field, missing_fields, supplied):
         errors.append(f"{prefix}: missing {field} must be listed in missing_or_uncertain_fields")
 
 
+def _has_full_date_precision(text):
+    """Recognise full-date syntax even when the calendar date is invalid."""
+    return bool(
+        ISO_DATE.search(text)
+        or NUM_DATE.search(text)
+        or any(match.group(2).casefold() in MONTHS for match in TEXT_DATE.finditer(text))
+    )
+
+
 def _date_matches(text):
     """Return valid ISO dates in source order, retaining duplicate values."""
     found = []
@@ -303,6 +312,8 @@ def validate(snapshot, candidate):
             quote = evidence_quotes(field["evidence"], key, value is not None)
             if value is not None and (not isinstance(value, str) or not value.strip() or _norm(value) not in _norm(quote)):
                 errors.append(f"{prefix}: {key} value is not supported by its quotation")
+            if key == "planned_period" and isinstance(value, str) and _has_full_date_precision(value):
+                errors.append(f"{prefix}: planned_period must be an approximate period, not a full calendar date")
             _check_missing_flag(errors, prefix, key, missing_fields, value is not None)
 
         prereqs = rec.get("prerequisites")

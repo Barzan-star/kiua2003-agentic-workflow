@@ -118,6 +118,29 @@ ordinary-WSL verification remains pending. No provider request was dispatched.
 Production checker, workflow, scorer, frozen corpus/reference and historical
 measurement evidence were not changed by this integration-test update.
 
+## Workflow implementation checkpoint (2026-11-08)
+
+Implemented the reviewed Task 015 workflow contract in the shared controller
+and actual evaluator. Trusted title, source URL, and retrieval time are copied
+from the preflighted immutable snapshot only after the candidate contains the
+exact unique approved ID set. Raw decoded responses are retained verbatim;
+assembled candidates, version-1 receipts, attempt records, checker evidence,
+and retry hashes are linked by SHA-256. The evaluator verifies the allowed
+transformation and evidence before scoring the checked assembled candidate
+and before advancing to another case. Invalid ID sets remain unchanged so the
+production checker handles rejection under the existing retry policy.
+
+The prompt now states the ambiguous-offering abstention rule, genuine missing
+value rule, and prohibition on marking supplied values missing. README and
+SPEC describe trusted metadata assembly as code behavior. No checker, schema,
+scorer, corpus, reference, CI, or historical measurement artifact changed.
+The focused metadata suite passed 18 tests; budgeted workflow passed 20;
+actual evaluation passed 39; workflow passed 12; corpus validation, replay,
+shell syntax, offline probe/check, and diff whitespace checks passed. The
+300-test repository run had one stdio MCP launch timeout (20-second test
+limit); its other tests passed. These checks do not measure model accuracy,
+and no post-change model measurement was run.
+
 ## Ordinary-WSL verification checkpoint
 
 The ordinary-WSL review in
@@ -134,3 +157,30 @@ in-memory transport and did not represent provider requests. Workflow-side
 reliability work and a post-change measured evaluation remain pending. This
 checkpoint does not mark Task 015 complete and does not show improved model
 accuracy.
+
+## Workflow integrity integration evidence (2026-11-10)
+
+The reviewed source-copy repair passed the 313-test ordinary-WSL suite with
+zero skips, including the configured MCP stdio launch. Eleven failing
+evidence-integrity regressions became passing checks; two positive controls
+also passed. The original 18-test metadata module remained byte-for-byte
+unchanged. Review logs are retained in
+`out/exam/task-015/current-repair-review-20261110T100601Z-5100cc1c/`.
+
+Integrated those exact controller/evaluator bytes and the new 13-test
+regression module into the working repository. The actual working-tree suite
+passed all 313 tests with zero failures, errors or skips, and corpus validation
+passed. The integration command log, before/after hashes and backups are in
+`out/exam/task-015/integration-20261110T130716Z-7778ac8c/`.
+
+The repair validates completed attempt history before continuation/rendering
+and before a completed result is returned, and shares the same verifier with
+actual evaluation. Requests are reconstructed from the approved source and
+exact preceding candidate/checker feedback; budget receipts must match live
+ledger history. Raw output and non-metadata facts remain preserved.
+
+The checker, independent scorer, adapter, ledger, frozen corpus/reference and
+historical outputs were protected by the recorded inventory. These results
+are deterministic workflow verification; post-change model measurement and
+qualitative review remain pending. No provider request or package installation
+was performed for this integration.

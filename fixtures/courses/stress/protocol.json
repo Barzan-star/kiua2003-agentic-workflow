@@ -1,0 +1,162 @@
+{
+  "title": "Task 017: accepted input/dependency stress study",
+  "protocol_version": 1,
+  "scope": "Accepted Compulsory 2 three-course workflow; no interviews or scope expansion",
+  "provider_mode": "existing SDKDouble; synthetic count and usage, not real model calls",
+  "live_provider_requests": 0,
+  "source_collection": "saved fixture only",
+  "historical_control": {
+    "component": "eval/check_courses.py from compulsory2-skeleton",
+    "commit": "11e057ecd28387674b64bca96f3687bd1ca15643",
+    "sha256": "18ad08ca77ed6d9244ba72e1b825617f6d6e5cd24f082aa799bb7c1088c9f67d",
+    "scope": "only the checker is historical; controller, prompt and recorded output stay fixed for I03/I04",
+    "fixture": "compulsory2-checker.py.txt"
+  },
+  "inputs": {
+    "source-base.json": {
+      "repo_relative": "out/course-evaluations/run-20261110T142507.391133Z-ca876b9b/inputs/cases/S00-base/source.json",
+      "sha256": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546"
+    },
+    "source-duplicate.json": {
+      "repo_relative": "out/course-evaluations/run-20261110T142507.391133Z-ca876b9b/inputs/cases/S02-identical-repeated-row/source.json",
+      "sha256": "966cc717fbd36981bf1c83f8bb79d8736d0abf6d532284e13240e6b4ff523fcd"
+    },
+    "source-conflict.json": {
+      "repo_relative": "out/course-evaluations/run-20261110T142507.391133Z-ca876b9b/inputs/cases/S05-conflicting-offerings/source.json",
+      "sha256": "fb3074808fb24931f1681773a02c7dae9d7d739567a1e14d2610b8d9d8a347d0"
+    },
+    "source-unapproved.json": {
+      "repo_relative": "out/course-evaluations/run-20261110T142507.391133Z-ca876b9b/inputs/cases/S08-unapproved-url/source.json",
+      "sha256": "491920914e8b2da120dd9d6d1066d0f92b5992d435f744a0c659b9b80cc3001f"
+    },
+    "candidate-base.json": {
+      "repo_relative": "out/course-evaluations/run-20261110T142507.391133Z-ca876b9b/cases/S00-base/candidate.json",
+      "sha256": "05499e12252433b380de169c96100ad908f19292f9dce131a93fa0a2a1b7ac64"
+    },
+    "candidate-conflict-bad.json": {
+      "repo_relative": "out/course-evaluations/run-20261108T155558.513345Z-54fe16fa/cases/S05-conflicting-offerings/candidate-3.json",
+      "sha256": "652fce452692c02105b3818c7700326d92c42af1310d8aca923e0972e422351b"
+    },
+    "candidate-conflict-abstain.json": {
+      "repo_relative": "out/course-evaluations/run-20261108T155558.513345Z-54fe16fa/cases/S05-conflicting-offerings/candidate-2.json",
+      "sha256": "60294219777a6c7c896433f5a0d712d89f0b26c3b9714ea7524513666925186e"
+    }
+  },
+  "cases": [
+    {
+      "id": "N00-normal-cli",
+      "perturbation_class": "control",
+      "intervention": "Real offline collection, replayed correct candidate, checker, renderer, local-copy publication",
+      "expected": "CLI exit 0; one simulated generation",
+      "source_input": "source-base.json",
+      "replayed_candidate": "candidate-base.json"
+    },
+    {
+      "id": "I01-identical-rows",
+      "perturbation_class": "input perturbation",
+      "intervention": "Repeat an existing offering row; replay the same base candidate",
+      "expected": "accepted; one simulated generation",
+      "source_input": "source-duplicate.json",
+      "replayed_candidate": "candidate-base.json"
+    },
+    {
+      "id": "I02-unapproved-url",
+      "perturbation_class": "input perturbation",
+      "intervention": "Use the declared S08 unapproved source URL",
+      "expected": "source_rejected; zero count and generation dispatches",
+      "source_input": "source-unapproved.json",
+      "replayed_candidate": "candidate-base.json"
+    },
+    {
+      "id": "I03-conflict-historical-checker",
+      "perturbation_class": "input perturbation",
+      "intervention": "S05 conflicting offerings + retained wrong selection; Compulsory 2 checker component",
+      "expected": "accepted bad selection: historical failure reproduced",
+      "source_input": "source-conflict.json",
+      "replayed_candidate": "candidate-conflict-bad.json"
+    },
+    {
+      "id": "I04-conflict-current-checker",
+      "perturbation_class": "input perturbation",
+      "intervention": "Same S05 source and candidate; current checker component",
+      "expected": "candidate_rejected after three attempts; no render",
+      "source_input": "source-conflict.json",
+      "replayed_candidate": "candidate-conflict-bad.json"
+    },
+    {
+      "id": "I05-conflict-abstention",
+      "perturbation_class": "input perturbation",
+      "intervention": "Same S05 source + retained earlier candidate with unknown exact dates",
+      "expected": "accepted; metadata restored from trusted source",
+      "source_input": "source-conflict.json",
+      "replayed_candidate": "candidate-conflict-abstain.json"
+    },
+    {
+      "id": "D01-generation-timeout",
+      "perturbation_class": "dependency failure",
+      "intervention": "Injected TimeoutError after reservation and simulated dispatch",
+      "expected": "provider_abort; retained reservation; shared ledger blocks later case",
+      "source_input": "source-base.json",
+      "replayed_candidate": "candidate-base.json"
+    },
+    {
+      "id": "D02-missing-usage",
+      "perturbation_class": "dependency failure",
+      "intervention": "Injected complete response lacking usage metadata",
+      "expected": "provider_abort; retained reservation; shared ledger blocks later case",
+      "source_input": "source-base.json",
+      "replayed_candidate": "candidate-base.json"
+    },
+    {
+      "id": "D03-cli-timeout-publication",
+      "perturbation_class": "dependency failure",
+      "intervention": "Real offline CLI with injected generation timeout after a successful normal control",
+      "expected": "CLI exit 7; existing isolated publication unchanged",
+      "source_input": "source-base.json",
+      "replayed_candidate": "candidate-base.json"
+    },
+    {
+      "id": "S01-call-cap",
+      "perturbation_class": "safety control",
+      "intervention": "Allow one synthetic generation, then attempt a later case with the same ledger",
+      "expected": "first accepted; later budget_exhausted before another count",
+      "source_input": "source-base.json",
+      "replayed_candidate": "candidate-base.json"
+    }
+  ],
+  "limits": {
+    "run_token_limit": 1000,
+    "max_output_tokens": 100,
+    "max_model_calls": 3,
+    "call_cap_control": 1,
+    "synthetic_input_tokens": 100,
+    "synthetic_output_tokens": 30
+  },
+  "limitations": [
+    "Recorded candidate replay does not measure current model behavior, prompt compliance or real provider usage.",
+    "Only the historical checker component is changed in I03/I04; this is not a rerun of the entire old system.",
+    "Timeout and missing-usage scenarios show existing containment, not newly discovered failures or repairs.",
+    "No general prompt-injection resistance or live-outage resilience claim."
+  ],
+  "original_source_sha256": {
+    "harness/course_workflow.py": "737885181ac91bd142d957c53179143bde8e909ebdf37e436be2d0d018eb6655",
+    "harness/course_sources.py": "858754ad989abe74494237ef7aa51f1918c3e57c22052b3ef04666d8a83e8dc2",
+    "harness/model_budget.py": "9dccef7bea324ba7fc9c1699f4e748693862f56bb7d9034b2da13edac01ec236",
+    "harness/openai_course_client.py": "d8aa9f6d5d4917cfe9e58870649240df8d70ca988f4fcc9a506932aa7f0c7775",
+    "harness/course_records.schema.json": "48b12a2e03d2779999ba0caf4e950d60861f3ccd0055b0718e7f239c2dc9afeb",
+    "harness/prompts/extract_courses.md": "83e4c89e4d26508608e1a171cd4d0c9d75bfea2a526f1df5c813dd140f8e83e7",
+    "harness/render_courses.py": "dfc4a1ff2c064ff52489dbd90234459bf64fc3475d5aba7157d7abce0dcc95fa",
+    "eval/check_courses.py": "276383e52c417b54ac93d6d8b76f9b8c9bd8a795fd2ba20bee513c49ef0409f3",
+    "fixtures/courses/course-sources.json": "1ff359c0251075a2274fb037c8c478d4d5ded1e12cf709be5feb0831222a4546",
+    "tests/test_budgeted_course_workflow.py": "a93bffefb12c30781b6094fe23862620c2c3234f6edfe902d535cd6fbbec331d",
+    "tests/test_course_records.py": "3763259b7681891b20142a8a4daa4c27651b321c4670d48d8c633a238dbccb8a"
+  },
+  "original_study_zip_sha256": "4a944f571092ac306b2a5e44d0d90d7b6044abeb8020f9ca6d0173df285e04d6",
+  "source_case_ids": {
+    "source-base.json": "S00-base",
+    "source-duplicate.json": "S02-identical-repeated-row",
+    "source-conflict.json": "S05-conflicting-offerings",
+    "source-unapproved.json": "S08-unapproved-url"
+  },
+  "source_catalog_sha256": "3bc44834f127de37ce397f07f80a3254b2b2f3736afb946a6e42c1b06aa6faa3"
+}

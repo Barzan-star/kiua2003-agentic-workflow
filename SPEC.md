@@ -13,8 +13,10 @@ dates, fees, prerequisites, or application availability.
 ## Users
 
 Managers responsible for arranging further training for electricians at small
-industrial companies in Gjøvik and Toten. This is a design target; direct
-interviews or validation of employer demand have not been performed.
+industrial companies in Gjøvik and Toten. The accepted Compulsory 2 report
+supports the regional need with the public NHO Innlandet competence survey.
+The agreed project scope uses public course data and documentary evidence;
+it does not include interviews.
 
 ## Definition of success
 
@@ -31,6 +33,11 @@ interviews or validation of employer demand have not been performed.
   prerequisites, delivery format, NOK study fee and materials qualification,
   application status, explicit missing/uncertain fields, and section-indexed
   verbatim evidence for each extracted fact.
+- The planned period is a separately published approximation, not a repeated
+  exact date. The checker rejects supported full-date syntax in its value;
+  unrelated full dates in the evidence quote do not invalidate an approximate
+  value. The prompt forbids deriving a period by truncating an exact date.
+  This limited precision check does not prove semantic completeness.
 - A standard-library checker enforces types, valid dates and fees, exactly the
   approved course set, same-course source membership, normalized date and fee
   agreement, and evidence/value support. For non-null dates it also verifies
@@ -55,6 +62,8 @@ interviews or validation of employer demand have not been performed.
 - JSON and Markdown publication is local. Markdown is rendered from validated
   records without another model call and includes source links, retrieval
   times, and uncertainty.
+  Table cells normalize display whitespace and escape backslashes and pipes;
+  the structured records and evidence retain their original content.
 - Deterministic tests use the real checked-in course fixture, real ledger and
   adapter, injected SDK doubles, and offline component subprocesses. No live
   fetch or model call is part of these checks.
@@ -81,6 +90,15 @@ the candidate shape; `eval/check_courses.py` checks fields and quotations
 against the immutable run input; `harness/render_courses.py` creates the
 deterministic local outputs.
 
+The workflow preserves decoded model text verbatim in a per-attempt raw
+response file, then assembles trusted course title, URL, and retrieval time
+from the preflighted source snapshot by course ID. The checker, renderer, and
+repair input use the assembled candidate. Versioned receipts bind raw, source,
+and assembled-candidate hashes and describe the permitted metadata changes.
+Actual evaluation verifies this evidence before scoring the assembled output
+or continuing to another case. These deterministic checks establish workflow
+behavior, not model accuracy; raw model output remains separately inspectable.
+
 Quotation membership, normalization, and date-role checks are mechanical
 evidence checks, not a complete semantic proof. Explicit labels and table
 headers support the date-role decision, but the checker cannot establish that
@@ -102,6 +120,17 @@ reported separately from infrastructure failure. The CLI returns 130 for
 interrupted extraction/checking/rendering and sanitizes unexpected errors.
 
 ## Verification
+
+The repository also reproduces the accepted input/dependency study with
+`python3 harness/stress_courses.py --offline`. It regenerates frozen source
+variants and replays hash-bound retained candidates through the real workflow
+using an in-memory provider double. Historical checker code is experiment
+data. It needs no Git history, model SDK or old run directories, and preserves
+normal publication. These controls are separate from model accuracy.
+
+Current evidence and operating boundaries are recorded in
+`docs/exam/evaluation-2026-11-10.md`,
+`docs/exam/stress-study-2026-11-10.md` and `docs/safe-operation.md`.
 
 ```sh
 bash -n harness/run_courses.sh

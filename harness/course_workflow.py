@@ -74,6 +74,234 @@ def _write_json(path: Path, value) -> None:
     path.write_bytes(_json_bytes(value))
 
 
+_TRUSTED_METADATA_FIELDS = ("title", "source_url", "retrieved_at")
+
+
+def _assemble_candidate(raw_text: str, source: dict):
+    """Return candidate text and a receipt describing trusted metadata assembly."""
+    raw_bytes = raw_text.encode("utf-8")
+    candidate = json.loads(raw_text)
+    source_by_id = {item["course_id"]: item for item in source["courses"]}
+    records = candidate.get("courses") if isinstance(candidate, dict) else None
+    ids = [item.get("course_id") if isinstance(item, dict) else None for item in records] if isinstance(records, list) else []
+    approved_ids = set(source_by_id)
+    valid_ids = (isinstance(records, list) and len(ids) == len(approved_ids)
+                 and all(isinstance(item, str) for item in ids)
+                 and set(ids) == approved_ids and len(set(ids)) == len(ids))
+    assembled = json.loads(json.dumps(candidate, ensure_ascii=False, allow_nan=False))
+    changes = []
+    if valid_ids:
+        for record in assembled["courses"]:
+            trusted = source_by_id[record["course_id"]]
+            emitted = next(item for item in records if item["course_id"] == record["course_id"])
+            for field in _TRUSTED_METADATA_FIELDS:
+                if emitted.get(field) != trusted.get(field):
+                    changes.append({"course_id": record["course_id"], "field": field,
+                                    "model_value": emitted.get(field), "source_value": trusted.get(field)})
+                if field in trusted:
+                    record[field] = trusted[field]
+                else:
+                    record.pop(field, None)
+        assembled_text = (raw_text if not changes else
+                          json.dumps(assembled, ensure_ascii=False, indent=2, allow_nan=False) + "\n")
+        status = "assembled"
+    else:
+        assembled_text = raw_text
+        changes = []
+        status = "skipped_invalid_course_ids"
+    return assembled_text, {
+        "version": 1, "assembly_status": status,
+        "raw_sha256": _sha256(raw_bytes),
+        "source_sha256": _sha256(_json_bytes(source)),
+        "candidate_sha256": _sha256(assembled_text.encode("utf-8")),
+        "metadata_changes": changes,
+    }
+
+
+def verify_assembly_evidence(case_dir: Path, attempt: int, source: dict, source_hash: str) -> dict:
+    """Verify an attempt receipt and prove only trusted metadata was changed."""
+    case_dir = Path(case_dir)
+    def file(name):
+        path = case_dir / name
+        if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(case_dir.resolve()):
+            raise ValueError("unsafe or missing assembly evidence")
+        return path
+    raw = file(f"raw-response-{attempt}.txt").read_bytes()
+    candidate_bytes = file(f"candidate-{attempt}.json").read_bytes()
+    receipt_path = file(f"assembly-{attempt}.json")
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if (type(receipt.get("version")) is not int or receipt.get("version") != 1
+            or receipt.get("raw_sha256") != _sha256(raw)
+            or receipt.get("source_sha256") != source_hash or receipt.get("candidate_sha256") != _sha256(candidate_bytes)):
+        raise ValueError("assembly receipt hash or version mismatch")
+    try:
+        raw_candidate = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        if (receipt.get("assembly_status") != "skipped_malformed_output" or candidate_bytes != raw
+                or receipt.get("metadata_changes") != []):
+            raise ValueError("malformed output assembly mismatch")
+        return receipt
+    recomputed_text, expected = _assemble_candidate(raw.decode("utf-8"), source)
+    expected_bytes = recomputed_text.encode("utf-8")
+    if candidate_bytes != expected_bytes:
+        raise ValueError("candidate is not the permitted metadata transformation")
+    for key in ("assembly_status", "metadata_changes"):
+        if receipt.get(key) != expected[key]:
+            raise ValueError("assembly receipt transformation mismatch")
+    return receipt
+
+
+def _evidence_file(case_dir: Path, name: str) -> Path:
+    path = case_dir / name
+    if (path.is_symlink() or not path.is_file()
+            or not path.resolve().is_relative_to(case_dir.resolve())):
+        raise ValueError("unsafe or missing workflow evidence")
+    return path
+
+
+def _same_json(first, second) -> bool:
+    # JSON equality must distinguish true/false from numeric receipt fields.
+    def canonical(value):
+        return json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False)
+    return canonical(first) == canonical(second)
+
+
+def verify_completed_attempts(case_dir: Path, attempts: int, source: dict,
+                              source_hash: str, ledger: TokenLedger) -> dict:
+    """Bind every completed attempt to source, request, checker and live budget."""
+    case_dir = Path(case_dir)
+    if type(attempts) is not int or not 1 <= attempts <= MAX_ATTEMPTS:
+        raise ValueError("invalid completed attempt count")
+
+    def required(name):
+        return _evidence_file(case_dir, name)
+
+    def read(name):
+        return json.loads(required(name).read_text(encoding="utf-8"))
+
+    if (_sha256(required("source.json").read_bytes()) != source_hash
+            or _sha256(_json_bytes(source)) != source_hash):
+        raise ValueError("source snapshot changed")
+    request = build_extraction_request(source)
+    provenance = read("source-provenance.json")
+    if (provenance.get("source_sha256") != source_hash
+            or provenance.get("approved_request_sha256") != request.sha256
+            or type(provenance.get("source_course_count")) is not int
+            or provenance["source_course_count"] != len(source["courses"])):
+        raise ValueError("source request provenance mismatch")
+
+    live_budget = ledger.state
+    if (live_budget["blocked"] or not _same_json(
+            json.loads(ledger.path.read_text(encoding="utf-8")), live_budget)):
+        raise ValueError("live budget evidence mismatch")
+    reservations = live_budget["reservations"]
+    if len(reservations) < attempts or any(item["status"] != "settled" for item in reservations):
+        raise ValueError("completed attempt has unsettled budget evidence")
+    previous_candidate = feedback = None
+    last_check = None
+    for attempt in range(1, attempts + 1):
+        request = build_extraction_request(
+            source, previous_candidate_json=previous_candidate,
+            production_checker_feedback=feedback,
+        )
+        candidate_path = required(f"candidate-{attempt}.json")
+        candidate_bytes = candidate_path.read_bytes()
+        candidate_hash = _sha256(candidate_bytes)
+        raw_hash = _sha256(required(f"raw-response-{attempt}.txt").read_bytes())
+        assembly_hash = _sha256(required(f"assembly-{attempt}.json").read_bytes())
+        checker_hash = _sha256(required(f"candidate-check-{attempt}.json").read_bytes())
+        budget_hash = _sha256(required(f"budget-after-attempt-{attempt}.json").read_bytes())
+        verify_assembly_evidence(case_dir, attempt, source, source_hash)
+        record = read(f"attempt-{attempt}.json")
+        requested = read(f"request-attempt-{attempt}.json")
+        check = read(f"candidate-check-{attempt}.json")
+        if type(check.get("stdout")) is not str or type(check.get("stderr")) is not str:
+            raise ValueError("checker feedback is malformed")
+        exact_feedback = check["stdout"] + check["stderr"]
+        repair_hash = _sha256(previous_candidate.encode("utf-8")) if previous_candidate is not None else None
+        feedback_hash = _sha256(feedback.encode("utf-8")) if feedback is not None else None
+        if (any(type(item.get("attempt")) is not int or item["attempt"] != attempt
+                for item in (record, requested, check))
+                or record.get("candidate_path") != candidate_path.name
+                or record.get("generation_status") != "completed"
+                or record.get("candidate_sha256") != candidate_hash
+                or record.get("raw_sha256") != raw_hash
+                or record.get("assembly_sha256") != assembly_hash
+                or record.get("checker_evidence_sha256") != checker_hash
+                or record.get("budget_after_sha256") != budget_hash
+                or any(item.get("source_sha256") != source_hash for item in (record, requested, check))
+                or any(item.get("count_create_payload_sha256") != request.sha256
+                       for item in (record, requested))
+                or requested.get("dispatch_status") != "completed"
+                or requested.get("repair_candidate_sha256") != repair_hash
+                or requested.get("checker_feedback_sha256") != feedback_hash
+                or check.get("candidate_sha256") != candidate_hash
+                or check.get("assembly_sha256") != assembly_hash
+                or check.get("feedback_sha256") != _sha256(exact_feedback.encode("utf-8"))
+                or check.get("dispatch_status") != "completed"
+                or check.get("timed_out") is not False
+                or type(check.get("status")) is not int or check["status"] not in (0, 1)
+                or (attempt < attempts and check["status"] != 1)
+                or type(record.get("checker_status")) is not int
+                or record["checker_status"] != check["status"]
+                or record.get("checker_dispatch_status") != "completed"
+                or record.get("checker_timed_out") is not False):
+            raise ValueError("completed attempt evidence mismatch")
+
+        # Earlier receipts are prefixes of the same caller-owned live ledger,
+        # including reservations from earlier evaluation cases.
+        prefix_length = len(reservations) - attempts + attempt
+        expected_budget = dict(live_budget)
+        expected_budget["reservations"] = reservations[:prefix_length]
+        expected_budget["model_calls"] = prefix_length
+        expected_budget["confirmed_tokens"] = sum(item["actual_tokens"] for item in reservations[:prefix_length])
+        if not _same_json(read(f"budget-after-attempt-{attempt}.json"), expected_budget):
+            raise ValueError("attempt budget does not match live ledger history")
+        audit = reservations[prefix_length - 1]["audit"]
+        model = request.as_dict()["model"]
+        if (audit.get("count_input_sha256") != request.sha256
+                or audit.get("create_input_sha256") != request.sha256
+                or any(record.get(key) != audit.get(key) for key in (
+                    "response_id", "request_id", "count_request_id", "requested_model", "returned_model"))
+                or record.get("requested_model") != model or record.get("returned_model") != model):
+            raise ValueError("attempt request is not bound to its budget reservation")
+        previous_candidate = candidate_bytes.decode("utf-8")
+        feedback = exact_feedback
+        last_check = check
+
+    if (required("candidate.json").read_bytes() != candidate_bytes
+            or required("candidate-check.json").read_bytes()
+            != required(f"candidate-check-{attempts}.json").read_bytes()):
+        raise ValueError("stable candidate or checker evidence mismatch")
+    return last_check
+
+
+def verify_completed_case_evidence(case_dir: Path, result: CourseWorkflowResult,
+                                   ledger: TokenLedger, source_hash: str) -> None:
+    """Verify a completed result before returning it or advancing evaluation."""
+    case_dir = Path(case_dir)
+    if result.status not in {"accepted", "candidate_rejected"}:
+        raise ValueError("result is not a completed course outcome")
+    def read(name):
+        return json.loads(_evidence_file(case_dir, name).read_text(encoding="utf-8"))
+    source = read("source.json")
+    check = verify_completed_attempts(case_dir, result.attempts, source, source_hash, ledger)
+    expected_status = 0 if result.status == "accepted" else 1
+    if (check["status"] != expected_status
+            or (result.status == "candidate_rejected" and result.attempts != MAX_ATTEMPTS)
+            or not _same_json(read("result.json"), asdict(result))
+            or not _same_json(read("budget-final.json"), ledger.state)):
+        raise ValueError("completed result evidence mismatch")
+    if result.status == "accepted":
+        rendered = read("render.json")
+        if (type(rendered.get("status")) is not int or rendered["status"] != 0
+                or rendered.get("dispatch_status") != "completed"
+                or rendered.get("timed_out") is not False
+                or _sha256(_evidence_file(case_dir, "rendered-courses.json").read_bytes()) != rendered.get("json_sha256")
+                or _sha256(_evidence_file(case_dir, "comparison.md").read_bytes()) != rendered.get("markdown_sha256")):
+            raise ValueError("completed render evidence mismatch")
+
+
 def _child_environment() -> dict[str, str]:
     environment = os.environ.copy()
     environment.pop("OPENAI_API_KEY", None)
@@ -204,6 +432,9 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
     for attempt in range(1, MAX_ATTEMPTS + 1):
         attempts = attempt
         progress["attempts"] = attempt
+        if attempt > 1:
+            progress["stage"] = "attempt_evidence_integrity"
+            verify_completed_attempts(case_dir, attempt - 1, source_snapshot, source_hash, ledger)
         progress["stage"] = "repair_request"
         try:
             attempt_request = build_extraction_request(
@@ -244,6 +475,9 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
             _record_result(case_dir, result, ledger)
             return result
 
+        if attempt > 1:
+            progress["stage"] = "attempt_evidence_integrity"
+            verify_completed_attempts(case_dir, attempt - 1, source_snapshot, source_hash, ledger)
         progress["stage"] = "generation"
         try:
             generation: CourseGeneration = adapter.generate(
@@ -352,17 +586,36 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
         candidate_path = case_dir / f"candidate-{attempt}.json"
         progress["stage"] = "candidate_evidence"
         try:
-            candidate_bytes = generation.text.encode("utf-8")
+            raw_path = case_dir / f"raw-response-{attempt}.txt"
+            raw_bytes = generation.text.encode("utf-8")
+            raw_path.write_bytes(raw_bytes)
+            try:
+                candidate_text, assembly = _assemble_candidate(generation.text, source_snapshot)
+            except (json.JSONDecodeError, UnicodeError):
+                candidate_text = generation.text
+                assembly = {
+                    "version": 1, "assembly_status": "skipped_malformed_output",
+                    "raw_sha256": _sha256(raw_bytes), "source_sha256": source_hash,
+                    "candidate_sha256": _sha256(raw_bytes), "metadata_changes": [],
+                }
+            candidate_bytes = candidate_text.encode("utf-8")
+            candidate_path.write_bytes(candidate_bytes)
+            shutil.copyfile(candidate_path, stable_candidate)
+            assembly_path = case_dir / f"assembly-{attempt}.json"
+            _write_json(assembly_path, assembly)
             _write_json(request_evidence, {
                 **json.loads(request_evidence.read_text(encoding="utf-8")),
                 "dispatch_status": "completed",
             })
-            candidate_path.write_bytes(candidate_bytes)
-            shutil.copyfile(candidate_path, stable_candidate)
+            budget_receipt = case_dir / f"budget-after-attempt-{attempt}.json"
+            _write_json(budget_receipt, ledger.state)
             _write_json(case_dir / f"attempt-{attempt}.json", {
                 "attempt": attempt,
                 "candidate_path": candidate_path.name,
                 "candidate_sha256": _sha256(candidate_bytes),
+                "raw_sha256": _sha256(raw_bytes),
+                "assembly_sha256": _sha256(assembly_path.read_bytes()),
+                "budget_after_sha256": _sha256(budget_receipt.read_bytes()),
                 "source_sha256": source_hash,
                 "count_create_payload_sha256": generation.payload_sha256,
                 "requested_model": generation.requested_model,
@@ -373,7 +626,6 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
                 "generation_status": "completed",
                 "checker_status": "not_dispatched",
             })
-            _write_json(case_dir / f"budget-after-attempt-{attempt}.json", ledger.state)
         except Exception:
             _safe_block(ledger, "ledger_persistence_failure")
             result = _result(
@@ -427,6 +679,7 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
             "feedback_sha256": _sha256(checker_feedback.encode("utf-8")),
             "source_sha256": source_hash,
             "candidate_sha256": _sha256(candidate_path.read_bytes()),
+            "assembly_sha256": _sha256((case_dir / f"assembly-{attempt}.json").read_bytes()),
         }
         progress["stage"] = "checker_evidence"
         try:
@@ -438,6 +691,7 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
             attempt_record["checker_status"] = checker_status
             attempt_record["checker_dispatch_status"] = dispatch_status
             attempt_record["checker_timed_out"] = timed_out
+            attempt_record["checker_evidence_sha256"] = _sha256(attempt_checker_evidence.read_bytes())
             _write_json(attempt_record_path, attempt_record)
             checker_path = checker_evidence
         except Exception:
@@ -449,6 +703,12 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
             )
             _record_result(case_dir, result, ledger)
             return result
+
+        if checker_status in (0, 1) and not timed_out:
+            progress["stage"] = "attempt_evidence_integrity"
+            verified_check = verify_completed_attempts(case_dir, attempt, source_snapshot, source_hash, ledger)
+            if not _same_json(verified_check, checker_record):
+                raise ValueError("checker evidence differs from the completed invocation")
 
         if checker_status == 0 and not timed_out:
             rendered_json = case_dir / "rendered-courses.json"
@@ -504,6 +764,8 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
                     rendered_markdown_path=str(rendered_markdown),
                 )
                 _record_result(case_dir, result, ledger)
+                progress["stage"] = "completed_case_evidence_integrity"
+                verify_completed_case_evidence(case_dir, result, ledger, source_hash)
                 return result
             _safe_block(ledger, "protocol_failure")
             result = _result(
@@ -522,8 +784,10 @@ def _run_case(source_bundle, ledger, sdk_client, case_dir, progress):
                     checker_path=str(checker_evidence), failure_code="three_candidates_rejected",
                 )
                 _record_result(case_dir, result, ledger)
+                progress["stage"] = "completed_case_evidence_integrity"
+                verify_completed_case_evidence(case_dir, result, ledger, source_hash)
                 return result
-            previous_candidate = generation.text
+            previous_candidate = candidate_text
             feedback = checker_feedback
             continue
 
