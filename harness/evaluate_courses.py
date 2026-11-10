@@ -23,7 +23,7 @@ if str(ROOT) not in sys.path:
 
 from harness import course_evaluation_cases as corpus
 from harness import course_evaluation_scoring as scoring
-from harness import course_sources
+from harness import course_sources, course_workflow
 
 
 RUNS_ROOT = ROOT / "out" / "course-evaluations"
@@ -1017,65 +1017,14 @@ class _ActualRequestAudit:
 
 
 def _verify_actual_case_evidence(row, case_dir, result, ledger):
-    """Refuse a completed case whose required receipts or hashes are missing."""
+    """Bind completed evaluation outcomes to the shared workflow verifier."""
     if result.status not in {"accepted", "candidate_rejected"}:
         return
-
-    def required(name):
-        path = case_dir / name
-        if not path.is_file() or path.is_symlink() or not path.resolve().is_relative_to(case_dir.resolve()):
-            raise ValueError("case evidence integrity failure")
-        return path
-
-    source_hash = _hash_file(required("source.json"))
+    source = course_workflow._evidence_file(case_dir, "source.json")
+    source_hash = _hash_file(source)
     if source_hash != row["source_sha256"] or _hash_file(ROOT / row["source_path"]) != source_hash:
         raise ValueError("case source evidence changed")
-    provenance = _read_json(required("source-provenance.json"))
-    if provenance.get("source_sha256") != source_hash:
-        raise ValueError("case source receipt mismatch")
-    receipt = _read_json(required("result.json"))
-    if receipt.get("status") != result.status or receipt.get("attempts") != result.attempts:
-        raise ValueError("case result receipt mismatch")
-    if _read_json(required("budget-final.json")) != ledger.state:
-        raise ValueError("case budget receipt mismatch")
-    if type(result.attempts) is not int or not 1 <= result.attempts <= 3:
-        raise ValueError("case attempt receipt invalid")
-    final_hash = None
-    for attempt in range(1, result.attempts + 1):
-        record = _read_json(required(f"attempt-{attempt}.json"))
-        candidate_hash = _hash_file(required(f"candidate-{attempt}.json"))
-        request = _read_json(required(f"request-attempt-{attempt}.json"))
-        check = _read_json(required(f"candidate-check-{attempt}.json"))
-        required(f"budget-after-attempt-{attempt}.json")
-        if (record.get("generation_status") != "completed"
-                or record.get("candidate_sha256") != candidate_hash
-                or record.get("source_sha256") != source_hash
-                or request.get("source_sha256") != source_hash
-                or request.get("dispatch_status") != "completed"
-                or record.get("count_create_payload_sha256") != request.get("count_create_payload_sha256")
-                or check.get("candidate_sha256") != candidate_hash
-                or check.get("source_sha256") != source_hash
-                or check.get("dispatch_status") != "completed"
-                or check.get("timed_out") is not False
-                or check.get("status") != record.get("checker_status")):
-            raise ValueError("case attempt evidence mismatch")
-        expected_check = 0 if result.status == "accepted" and attempt == result.attempts else 1
-        if type(check.get("status")) is not int or check["status"] != expected_check:
-            raise ValueError("case checker outcome mismatch")
-        final_hash = candidate_hash
-    if result.status == "candidate_rejected" and result.attempts != 3:
-        raise ValueError("case rejection is not a completed three-attempt outcome")
-    if (_hash_file(required("candidate.json")) != final_hash
-            or required("candidate-check.json").read_bytes()
-            != required(f"candidate-check-{result.attempts}.json").read_bytes()):
-        raise ValueError("case final candidate/checker mismatch")
-    if result.status == "accepted":
-        rendered = _read_json(required("render.json"))
-        if (rendered.get("status") != 0 or rendered.get("dispatch_status") != "completed"
-                or rendered.get("timed_out") is not False
-                or _hash_file(required("rendered-courses.json")) != rendered.get("json_sha256")
-                or _hash_file(required("comparison.md")) != rendered.get("markdown_sha256")):
-            raise ValueError("case rendered evidence mismatch")
+    course_workflow.verify_completed_case_evidence(case_dir, result, ledger, source_hash)
 
 
 def _actual_rate(numerator, denominator):
